@@ -23,9 +23,9 @@ def tokenize(text_data, tokenizer, max_length, padding = True):
 
 
 def get_Dataset(dataset, tokenizer,max_length):
-    premise_hypothesis = [premise+'<\s>'+hypothesis for premise,hypothesis in zip(dataset['premise'],dataset['hypothesis'])]
+    premise_hypothesis = ['<\s>'+premise+'<\s>'+hypothesis for premise,hypothesis in zip(dataset['premise'],dataset['hypothesis'])]
     label  = torch.Tensor(dataset['label'])
     token_ids, token_attn = tokenize(premise_hypothesis, tokenizer, max_length = max_length)
     train_data = TensorDataset(token_ids, token_attn, label)
-    return train_data #needed for T5
+    return train_data 
 
