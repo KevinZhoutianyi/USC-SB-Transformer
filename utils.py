@@ -17,6 +17,7 @@ def accuracy_score(all_labels, all_preds):
 def tokenize(text_data, tokenizer, max_length, padding = True):
     
     encoding = tokenizer(text_data, return_tensors='pt', padding=padding, truncation = True, max_length = max_length)
+    # encoding = tokenizer(premise, hypothesis, ...)
     input_ids = encoding['input_ids']
     attention_mask = encoding['attention_mask']
     return input_ids, attention_mask
