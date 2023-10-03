@@ -5,7 +5,8 @@ import torch
 
 def accuracy_score(all_labels, all_preds):
     correct_count = 0
-
+    all_labels = all_labels.squeeze().tolist()
+    all_preds = all_preds.squeeze().tolist()
     for label, pred in zip(all_labels, all_preds):
         if label == pred:
             correct_count += 1
