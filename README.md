@@ -10,6 +10,6 @@
 
 2. download [MultiNLI](https://github.com/kohpangwei/group_DRO/blob/master/data/multinli_dataset.py)
 
-## TODO: 
+3. Implement the RoBERTa on MultiNLI:
 
-### Implement the RoBERTa on MultiNLI:
+TODO: Train model on Server

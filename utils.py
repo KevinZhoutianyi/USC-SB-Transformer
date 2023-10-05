@@ -15,19 +15,25 @@ def accuracy_score(all_labels, all_preds):
 
 
 
-def tokenize(text_data, tokenizer, max_length, padding = True):
-    
-    encoding = tokenizer(text_data, return_tensors='pt', padding=padding, truncation = True, max_length = max_length)
+def tokenize(premise, hypothesis,tokenizer, max_length, padding = True):
+    # tokenizer.build_inputs_with_special_tokens(premise,hyp)
+    # print('premise',tokenizer(text=premise, return_tensors='pt', add_special_tokens=True, padding=padding, truncation = True, max_length = max_length)[0])
+    # print('hyper',tokenizer(text=hypothesis, return_tensors='pt', add_special_tokens=True, padding=padding, truncation = True, max_length = max_length)[0])
+    encoding = tokenizer(text=premise,text_pair = hypothesis, return_tensors='pt', add_special_tokens=True, padding=padding, truncation = True, max_length = max_length)
     # encoding = tokenizer(premise, hypothesis, ...)
     input_ids = encoding['input_ids']
     attention_mask = encoding['attention_mask']
+    # print('input',input_ids[0])
+    # print('att',attention_mask[0])
     return input_ids, attention_mask
 
 
 def get_Dataset(dataset, tokenizer,max_length):
-    premise_hypothesis = ['<\s>'+premise+'<\s>'+hypothesis for premise,hypothesis in zip(dataset['premise'],dataset['hypothesis'])]
+    premise , hypothesis = dataset['premise'],dataset['hypothesis']
+    
     label  = torch.Tensor(dataset['label'])
-    token_ids, token_attn = tokenize(premise_hypothesis, tokenizer, max_length = max_length)
+    label = label.type(torch.LongTensor)  
+    token_ids, token_attn = tokenize(premise,hypothesis, tokenizer, max_length = max_length)
     train_data = TensorDataset(token_ids, token_attn, label)
     return train_data 
 

@@ -8,9 +8,11 @@ import random
 import os
 import numpy as np
 
+from torch.autograd import Variable
 from utils import accuracy_score
 
-from transformers import RobertaTokenizer, RobertaModel
+from transformers import AutoModelForSequenceClassification
+from transformers import AutoTokenizer
 
 # %%
 def seed_torch(seed=0):
@@ -25,101 +27,86 @@ seed_torch(1)
 
 # %%
 # EXAMPLE
-tokenizer = RobertaTokenizer.from_pretrained('roberta-base')
-model = RobertaModel.from_pretrained('roberta-base')
-text_batch = ["I love Pixar.", "I don't care for Pixar."]
-encoding = tokenizer(text_batch, return_tensors='pt', padding=True, truncation=True)
-input_ids = encoding['input_ids']
-attention_mask = encoding['attention_mask']
-labels = torch.tensor([1,0]).unsqueeze(0)
-outputs = model(input_ids, attention_mask=attention_mask)
-print(outputs.last_hidden_state.shape) #number of data, sequence length, hidden state size
-print(outputs.last_hidden_state[:,0,:].shape) # connect this to FC layer (768,2) to do binary classfication)
+# tokenizer = RobertaTokenizer.from_pretrained('roberta-base')
+# model = RobertaModel.from_pretrained('roberta-base')
+# text_batch = ["I love Pixar.", "I don't care for Pixar."]
+# encoding = tokenizer(text_batch, return_tensors='pt', padding=True, truncation=True)
+# input_ids = encoding['input_ids']
+# attention_mask = encoding['attention_mask']
+# labels = torch.tensor([1,0]).unsqueeze(0)
+# outputs = model(input_ids, attention_mask=attention_mask)
+# print(outputs.last_hidden_state.shape) #number of data, sequence length, hidden state size
+# print(outputs.last_hidden_state[:,0,:].shape) # connect this to FC layer (768,2) to do binary classfication)
 
 # %%
 class TextClassifier(nn.Module):
-    def __init__(self, model_name='roberta-base', num_groups=3, batch_size=32, max_length=128):
+    def __init__(self, args, model_name='roberta-base', num_labels=3 ):
         super(TextClassifier, self).__init__()
-        self.tokenizer = RobertaTokenizer.from_pretrained(model_name)
-        self.model = RobertaModel.from_pretrained(model_name)
-        self.batch_size = batch_size
-        self.max_length = max_length
+        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
+        self.model =AutoModelForSequenceClassification.from_pretrained(model_name, num_labels=num_labels) 
+        self.batch_size = args.batch_size
+        self.max_length = args.max_length
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.fc = nn.Linear(self.model.config.hidden_size, 3)  # FC layer
-
+        # self.fc = nn.Linear(self.model.config.hidden_size, 3)  # FC layer
+        self.criterion = torch.nn.CrossEntropyLoss()#ignore_index=0
+        self.softmax = torch.nn.Softmax(dim=1)
+        self.optimizer = torch.optim.Adam(self.model.parameters(),  lr= args.lr ,  betas=(0, 0.9)  )
+        self.scheduler =torch.optim.lr_scheduler.StepLR(self.optimizer, 1, gamma=args.gamma)
+        self.epochs = args.epochs
 
     def forward(self,x,x_att):
         output = self.model(x,attention_mask=x_att)
-        hidden_states = output.last_hidden_state[:,0,:] #[cls] tokens
-        logits = self.fc(hidden_states)
+        logits = output.logits
+        logits = self.softmax(logits) #not sure whether we need this line to compute loss
         return logits
     
     def loss(self,logits,labels):
-        loss = F.cross_entropy(logits, labels)
+        loss = self.criterion(logits, labels)
         return loss
 
-    def train(self, train_texts, train_labels, validation_texts, validation_labels, epochs=3):
-        train_inputs, train_labels = self.preprocess_text(train_texts, train_labels)
-        validation_inputs, validation_labels = self.preprocess_text(validation_texts, validation_labels)
-
-        train_dataset = torch.utils.data.TensorDataset(train_inputs['input_ids'], train_inputs['attention_mask'], train_labels)
-        validation_dataset = torch.utils.data.TensorDataset(validation_inputs['input_ids'], validation_inputs['attention_mask'], validation_labels)
-
-        train_loader = DataLoader(train_dataset, batch_size=self.batch_size, shuffle=True)
-        validation_loader = DataLoader(validation_dataset, batch_size=self.batch_size)
-
-        self.model.to(self.device)
+    def train(self,train_dataloader,valid_dataloader,device):
         self.model.train()
-
-        optimizer = torch.optim.AdamW(self.model.parameters(), lr=1e-5)
-
-        for epoch in range(epochs):
+        for epoch in range(self.epochs):
             train_loss = 0.0
-            for batch in train_loader:
-                batch = tuple(t.to(self.device) for t in batch)
-                input_ids, attention_mask, label_ids = batch
-
-                optimizer.zero_grad()
-                outputs = self.forward(input_ids, attention_mask=attention_mask)
-                loss = outputs.loss
+            for step,batch in enumerate(train_dataloader):
+                input_ids = Variable(batch[0], requires_grad=False).to(device, non_blocking=False)
+                input_attn = Variable(batch[1], requires_grad=False).to(device, non_blocking=False)
+                labels = Variable(batch[2], requires_grad=False).to(device, non_blocking=False)    
+                self.optimizer.zero_grad()
+                logits = self.forward(input_ids,input_attn)
+                loss = self.loss(logits,labels)
                 loss.backward()
-                optimizer.step()
+                self.optimizer.step()
 
                 train_loss += loss.item()
 
-            print(f"Epoch {epoch+1}/{epochs}, Train Loss: {train_loss:.4f}")
+            print(f"Epoch {epoch+1}/{self.epochs}, Train Loss: {train_loss/(step+1):.4f}")
 
             # Validation
             self.model.eval()
-            all_preds = []
-            all_labels = []
+            all_acc = []
+            all_loss = []
 
             with torch.no_grad():
-                for batch in validation_loader:
-                    batch = tuple(t.to(self.device) for t in batch)
-                    input_ids, attention_mask, label_ids = batch
-                    outputs = self.forward(input_ids, attention_mask=attention_mask)
+                for step,batch in enumerate(valid_dataloader):
+                    input_ids = Variable(batch[0], requires_grad=False).to(device, non_blocking=False)
+                    input_attn = Variable(batch[1], requires_grad=False).to(device, non_blocking=False)
+                    labels = Variable(batch[2], requires_grad=False).to(device, non_blocking=False)   
+                    
+                    logits = self.forward(input_ids,input_attn)
+                    loss = self.loss(logits,labels)
 
-                    logits = outputs.logits
-                    preds = torch.argmax(logits, dim=1)
+                    predict = torch.argmax(logits,dim=1)
+                    accuracy = accuracy_score(labels, predict)
+                    all_loss.append(loss)
+                    all_acc.append(accuracy)
 
-                    all_preds.extend(preds.cpu().numpy())
-                    all_labels.extend(label_ids.cpu().numpy())
 
-            accuracy = accuracy_score(all_labels, all_preds)
-            print(f"Validation Accuracy: {accuracy:.4f}")
+            print(f"Validation Loss: {sum(all_loss) / len(all_loss) :.4f}")
+            print(f"Validation Accuracy: {sum(all_acc) / len(all_acc):.4f}")
             self.model.train()
 
-    def predict(self, text_list):
-        inputs, _ = self.preprocess_text(text_list, labels=None)
-        inputs = inputs.to(self.device)
-
-        self.model.eval()
-        with torch.no_grad():
-            logits = self.forward(inputs['input_ids'],inputs['attention_mask'])
-            preds = torch.argmax(logits, dim=1).cpu().numpy()
-
-        return preds
+   
 
 # classifier = RoBERTaTextClassifier("roberta-base", num_labels=3)
 # train_texts, train_labels, validation_texts, validation_labels = ... multiNLP
