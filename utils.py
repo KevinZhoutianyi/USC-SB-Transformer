@@ -1,7 +1,9 @@
-
 from torch.utils.data import TensorDataset
 from torch.utils.data import DataLoader
 import torch
+import numpy as np
+import random
+from transformers import RobertaTokenizer
 
 def accuracy_score(all_labels, all_preds):
     correct_count = 0
@@ -33,7 +35,59 @@ def get_Dataset(dataset, tokenizer,max_length):
     
     label  = torch.Tensor(dataset['label'])
     label = label.type(torch.LongTensor)  
+    
     token_ids, token_attn = tokenize(premise,hypothesis, tokenizer, max_length = max_length)
     train_data = TensorDataset(token_ids, token_attn, label)
     return train_data 
 
+#unsure if we should considering casing, punctuation when replacing — original: Product and geography are what make cream skimming work., modified: parks and geography are what make cream skimming work.
+
+def get_vocab(dataset):
+    vocab = []
+    for premise in dataset["premise"]:
+        for word in premise.replace(".", " ").split():
+            if word not in vocab:
+                vocab.append(word)
+    for hypothesis in dataset["hypothesis"]:
+        for word in hypothesis.replace(".", " ").split():
+            if word not in vocab:
+                vocab.append(word)
+    return vocab
+
+def word_label_sensitivity(dataset, n, model, device):
+    #can be called for matched, mismatched validation sets — use untokenized data
+    vocab = get_vocab(dataset)
+    labels = dataset["label"]
+    premise = dataset["premise"]
+    index = 0
+    sensitivity = []
+    for hypothesis in dataset["hypothesis"][0:5]:
+        print("hypothesis", hypothesis)
+        original_label = labels[index]
+        print("original label", original_label)
+        temp_hypothesis = hypothesis[:]
+        label_change_per_word = 0
+        for word in hypothesis.replace(".", " ").split():
+            label_change = 0
+            for i in range(n):
+                #may need to seed this so its truly random 
+                replacement = random.choice(vocab)
+                hypothesis_replaced = temp_hypothesis.replace(word, replacement)
+                print("replaced", hypothesis_replaced)
+                #i can parameterize the model and max length arguments as well if we think it is necessary
+                print("premise", premise[index])
+                input_ids, att_mask = tokenize(premise[index], hypothesis_replaced, RobertaTokenizer.from_pretrained('roberta-base'), 512)
+                # data = torch.tensor(data)
+                with torch.no_grad():
+                    output = model(input_ids, att_mask)
+                    pred_label = torch.argmax(output, dim=1)
+                    print("pred label", pred_label)
+                    if original_label != pred_label:
+                        label_change += 1
+            print("label change", label_change)
+            label_change /= n
+            label_change_per_word += label_change
+        print("label_change_per_word", label_change_per_word)  
+        sensitivity.append(label_change_per_word/len(hypothesis))
+        index += 1
+    return sensitivity 
