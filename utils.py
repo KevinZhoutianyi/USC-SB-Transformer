@@ -3,6 +3,7 @@ from torch.utils.data import DataLoader
 import torch
 import numpy as np
 import random
+import re
 from transformers import RobertaTokenizer
 
 def accuracy_score(all_labels, all_preds):
@@ -67,12 +68,14 @@ def word_label_sensitivity(dataset, n, model, device):
         print("original label", original_label)
         temp_hypothesis = hypothesis[:]
         label_change_per_word = 0
+        len = 0
         for word in hypothesis.replace(".", " ").split():
+            len += 1
             label_change = 0
             for i in range(n):
                 #may need to seed this so its truly random 
                 replacement = random.choice(vocab)
-                hypothesis_replaced = temp_hypothesis.replace(word, replacement)
+                hypothesis_replaced = re.sub(r'\b' + re.escape(word) + r'\b', replacement, temp_hypothesis)
                 print("replaced", hypothesis_replaced)
                 #i can parameterize the model and max length arguments as well if we think it is necessary
                 print("premise", premise[index])
@@ -87,7 +90,8 @@ def word_label_sensitivity(dataset, n, model, device):
             print("label change", label_change)
             label_change /= n
             label_change_per_word += label_change
+        print("length", len)
         print("label_change_per_word", label_change_per_word)  
-        sensitivity.append(label_change_per_word/len(hypothesis))
+        sensitivity.append(label_change_per_word/len)
         index += 1
     return sensitivity 
