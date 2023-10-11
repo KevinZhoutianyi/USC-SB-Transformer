@@ -61,7 +61,7 @@ def word_label_sensitivity(dataset, n, model, device):
     premise = dataset["premise"]
     index = 0
     sensitivity = []
-    for hypothesis in dataset["hypothesis"][0:5]:
+    for hypothesis in dataset["hypothesis"]:
         print("hypothesis", hypothesis)
         original_label = labels[index]
         print("original label", original_label)
