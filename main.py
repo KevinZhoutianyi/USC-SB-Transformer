@@ -1,4 +1,5 @@
 # %%
+# %%
 from datasets import load_dataset
 import os
 os.getcwd() 
@@ -24,30 +25,50 @@ import string
 from RoBERTa import *
 from transformers import RobertaTokenizer
 from transformers import AutoTokenizer
+import logging    # first of all import the module
+from datetime import datetime
 
+logfilename = datetime.now().strftime('./logs/logfile_%H_%M_%d_%m_%Y.log')
+logging.getLogger().setLevel(logging.INFO)
+
+logging.basicConfig(filename=logfilename, filemode='w', format='%(asctime)s %(levelname)s - %(funcName)s: %(message)s')
 # %%
+handle = "root"
+logger = logging.getLogger(handle)
+
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 parser = argparse.ArgumentParser("main")
 
-parser.add_argument('--valid_num_points', type=int,             default = 8,              help='validation data number')
-parser.add_argument('--train_num_points', type=int,             default = 80,              help='train data number')
+parser.add_argument('--train_num_points', type=int,             default = 10000,              help='train data number')
+parser.add_argument('--valid_num_points', type=int,             default = 128,              help='validation data number')
+parser.add_argument('--report_num_points',type=int,             default = 500,              help='report number')
 parser.add_argument('--model_name',       type=str,             default = 'roberta-base',   help='model name')
 parser.add_argument('--max_length',       type=int,             default=128,                help='max_length')
-parser.add_argument('--batch_size',       type=int,             default=8,                  help='Batch size')
+parser.add_argument('--batch_size',       type=int,             default=64,                  help='Batch size')
 parser.add_argument('--num_workers',      type=int,             default=0,                  help='num_workers')
-parser.add_argument('--epochs',           type=int,             default=5000,                  help='num of epochs')
+parser.add_argument('--epochs',           type=int,             default=5,                  help='num of epochs')
 parser.add_argument('--lr',               type=float,           default=1e-5,               help='lr')
 parser.add_argument('--gamma',            type=float,           default=1,                  help='lr*gamma after each test')
 
 args = parser.parse_args(args=[])#(args=['--batch_size', '8',  '--no_cuda'])#used in ipynb
-print(args)
+logger.info(f'args:{args}')
 
 dataset = load_dataset('glue', 'mnli')
 
+logger.info('\n Property of dataset:')
+logger.info(f'train set size: {len(dataset["train"])}')
+logger.info(f'validation_mismatched set size: {len(dataset["validation_matched"])}')
+logger.info(f'test_matched set size: {len(dataset["test_matched"])}')
+logger.info(f'test_mismatched set size: {len(dataset["test_mismatched"])}')
+# %%
+# %%
+
+
+
 # %%
 train = dataset['train'][:args.train_num_points]
-valid = dataset['train'][-args.valid_num_points:]
+valid = dataset['validation_matched'][-args.valid_num_points:]
 
 tokenizer = RobertaTokenizer.from_pretrained(args.model_name)
 #mnli
@@ -62,9 +83,12 @@ valid_dataloader = DataLoader(valid_data, sampler=SequentialSampler(valid_data),
                         batch_size=args.batch_size, pin_memory=args.num_workers>0, num_workers=args.num_workers)
 
 # %%
+
 model = TextClassifier(args).to(device)
-model.train(train_dataloader,train_dataloader,device)
-    
+model.train(train_dataloader,valid_dataloader,valid,device)
+
+
+
 
 # %%
 
