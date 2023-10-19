@@ -66,8 +66,14 @@ def word_label_sensitivity(dataset, n, model, device): #Tianyi: this function ru
     index = 0
     sensitivity = []
     for hypothesis in dataset["hypothesis"]:
-        logger.info(f"-----hypothesis:{hypothesis}")
-        original_label = labels[index]
+        # logger.info(f"-----hypothesis:{hypothesis}")
+
+        input_ids, att_mask = tokenize(premise[index], hypothesis, RobertaTokenizer.from_pretrained('roberta-base'), 512)
+        input_ids, att_mask = input_ids.to(device), att_mask.to(device)
+        with torch.no_grad():
+            output = model.forward(input_ids, att_mask)
+            original_label =torch.argmax(output, dim=1)  
+
         # logger.info("original label:", original_label)
         temp_hypothesis = hypothesis[:]
         label_change_per_word = 0
@@ -96,8 +102,8 @@ def word_label_sensitivity(dataset, n, model, device): #Tianyi: this function ru
             label_change /= n
             label_change_per_word += label_change
             # logger.info('-------------------')
-        logger.info(f"length:{len}")
-        logger.info(f"label_change_per_word:{label_change_per_word}")  
+        # logger.info(f"length:{len}")
+        # logger.info(f"label_change_per_word:{label_change_per_word}")  
         sensitivity.append(label_change_per_word/len)
         index += 1
     return sensitivity 

@@ -14,6 +14,8 @@ from utils import *
 from transformers import AutoModelForSequenceClassification
 from transformers import AutoTokenizer
 import logging    # first of all import the module
+from datetime import datetime
+
 
 # %%
 def seed_torch(seed=0):
@@ -26,6 +28,9 @@ def seed_torch(seed=0):
     
 seed_torch(1)
 
+def get_savefilename(variablename):
+    logfilename = datetime.now().strftime('./logs/'+variablename+'_%H_%M_%d_%m_%Y')
+    return logfilename
 # %%
 # EXAMPLE
 # tokenizer = RobertaTokenizer.from_pretrained('roberta-base')
@@ -55,6 +60,11 @@ class TextClassifier(nn.Module):
         self.scheduler =torch.optim.lr_scheduler.StepLR(self.optimizer, 1, gamma=args.gamma)
         self.epochs = args.epochs
         self.report_number = args.report_num_points
+        self.replace_size = args.replace_size
+        self.sensitivity_2dlist_report = []
+        self.train_loss_report = []
+        self.validation_loss_report = []
+        self.validation_acc_report = []
 
     def forward(self,x,x_att):
         output = self.model(x,attention_mask=x_att)
@@ -65,8 +75,7 @@ class TextClassifier(nn.Module):
     def loss(self,logits,labels):
         loss = self.criterion(logits, labels)
         return loss
-
-    def train(self,train_dataloader,valid_dataloader,valid_raw,device):
+    def validation(self,valid_dataloader,valid_raw,epoch,device,save=False):
         logger =  logging.getLogger('training')
         self.model.eval()
         all_acc = []
@@ -82,16 +91,33 @@ class TextClassifier(nn.Module):
                 accuracy = accuracy_score(labels, predict)
                 all_loss.append(loss)
                 all_acc.append(accuracy)
-        sensitivity = word_label_sensitivity(valid_raw, 5, self, device)
-        logger.info(f"Validation Loss: {sum(all_loss) / len(all_loss) :.4f}")
-        logger.info(f"Validation Accuracy: {sum(all_acc) / len(all_acc):.4f}, Sensitivity on Validation: {sensitivity:4f}")
+        sensitivity = word_label_sensitivity(valid_raw, self.replace_size, self, device)
+        self.sensitivity_2dlist_report.append(sensitivity)
+        self.validation_loss_report.append(sum(all_loss)    / len(all_loss) )
+        self.validation_acc_report.append(sum(all_acc) / len(all_acc))
+        logger.info(f"sensitivity: {sensitivity}")
+        logger.info(f"sensitivity mean: {sum(sensitivity) / len(sensitivity) :.4f}")
+        logger.info(f"Validation Loss:  {sum(all_loss)    / len(all_loss)    :.4f}")
+        logger.info(f"Validation Accuracy: {sum(all_acc) / len(all_acc):.4f}")
+        if save:
+            torch.save({
+                'epoch': epoch,
+                'model_state_dict': self.model.state_dict(),
+                'optimizer_state_dict': self.optimizer.state_dict(),
+                'acc': sum(all_acc) / len(all_acc),}, './checkpoints/'+str(epoch)+'_model.pt')
+
+    def train(self,train_dataloader,valid_dataloader,valid_raw,device):
+        logger =  logging.getLogger('training')
+        self.validation(valid_dataloader,valid_raw,0,device,False)
         self.model.train()
         report_counter  = 0
+        total_counter = 0
         for epoch in range(self.epochs):
             #train
             train_loss = 0.0
             for step,batch in enumerate(train_dataloader):
                 report_counter += len(batch[0])
+                total_counter += len(batch[0])
                 input_ids = Variable(batch[0], requires_grad=False).to(device, non_blocking=False)
                 input_attn = Variable(batch[1], requires_grad=False).to(device, non_blocking=False)
                 labels = Variable(batch[2], requires_grad=False).to(device, non_blocking=False)    
@@ -104,50 +130,28 @@ class TextClassifier(nn.Module):
 
 
                 if report_counter > self.report_number:
+                    self.train_loss_report.append(train_loss/(step+1))
                     report_counter  = 0
+                    logger.info(f'======total trained data counter: {total_counter}======')
                     logger.info(f'report_counter hit { self.report_number}, will do validation')
                     # Validation
-                    self.model.eval()
-                    all_acc = []
-                    all_loss = []
-                    with torch.no_grad():
-                        for step,batch in enumerate(valid_dataloader):
-                            input_ids = Variable(batch[0], requires_grad=False).to(device, non_blocking=False)
-                            input_attn = Variable(batch[1], requires_grad=False).to(device, non_blocking=False)
-                            labels = Variable(batch[2], requires_grad=False).to(device, non_blocking=False)   
-                            logits = self.forward(input_ids,input_attn)
-                            loss = self.loss(logits,labels)
-                            predict = torch.argmax(logits,dim=1)
-                            accuracy = accuracy_score(labels, predict)
-                            all_loss.append(loss)
-                            all_acc.append(accuracy)
-                    #report
-                    torch.save({
-                        'epoch': epoch,
-                        'model_state_dict': self.model.state_dict(),
-                        'optimizer_state_dict': self.optimizer.state_dict(),
-                        'acc': sum(all_acc) / len(all_acc),}, './checkpoints/'+str(epoch)+'_model.pt')
-                    sensitivity = word_label_sensitivity(valid_raw, 5, self, device)
-                    logger.info(f"Validation Loss: {sum(all_loss) / len(all_loss) :.4f}")
-                    logger.info(f"Validation Accuracy: {sum(all_acc) / len(all_acc):.4f}, Sensitivity on Validation: {sensitivity:4f}")
-                    self.model.train()
+                    self.validation(valid_dataloader,valid_raw,epoch,device,False)
 
 
+                    temp1 = torch.tensor(self.sensitivity_2dlist_report, device = 'cpu')
+                    temp2= torch.tensor(self.train_loss_report, device = 'cpu')
+                    temp3 = torch.tensor(self.validation_loss_report, device = 'cpu')
+                    temp4 = torch.tensor(self.validation_acc_report, device = 'cpu')
+                    np.save(get_savefilename('sensitivity'), temp1)
+                    np.save(get_savefilename('trainloss'),temp2)
+                    np.save(get_savefilename('validationloss'), temp3)
+                    np.save(get_savefilename('validationacc'), temp4)
 
 
             logger.info(f"Epoch {epoch+1}/{self.epochs}, Train Loss: {train_loss/(step+1):.4f}")
 
             
    
-
-# classifier = RoBERTaTextClassifier("roberta-base", num_labels=3)
-# train_texts, train_labels, validation_texts, validation_labels = ... multiNLP
-# classifier.train(train_texts, train_labels, validation_texts, validation_labels)
-# test_texts = ...
-# predictions = classifier.predict(test_texts)
-
-
-# %%
 
 
 
