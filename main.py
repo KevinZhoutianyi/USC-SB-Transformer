@@ -70,6 +70,7 @@ logger.info(f'test_mismatched set size: {len(dataset["test_mismatched"])}')
 # %%
 train = dataset['train'][:args.train_num_points]
 valid = dataset['validation_matched'][-args.valid_num_points:]
+replaced = replaced_data(valid, args.replace_size)
 
 tokenizer = RobertaTokenizer.from_pretrained(args.model_name)
 #mnli
@@ -82,11 +83,13 @@ train_dataloader = DataLoader(train_data, sampler= SequentialSampler(train_data)
 valid_data = get_Dataset(valid, tokenizer,max_length=args.max_length)
 valid_dataloader = DataLoader(valid_data, sampler=SequentialSampler(valid_data), 
                         batch_size=args.batch_size, pin_memory=args.num_workers>0, num_workers=args.num_workers)
-
+replaced_data = get_Dataset(replaced, tokenizer, max_length = args.max_length)
+replaced_dataloader = DataLoader(replaced_data, sampler=SequentialSampler(valid_data), 
+                        batch_size=args.batch_size, pin_memory=args.num_workers>0, num_workers=args.num_workers)
 # %%
 
 model = TextClassifier(args).to(device)
-model.train(train_dataloader,valid_dataloader,valid,device)
+model.train(train_dataloader,valid_dataloader,replaced_dataloader, device)
 
 
 

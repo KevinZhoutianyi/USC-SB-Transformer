@@ -6,6 +6,7 @@ import random
 import re
 from transformers import RobertaTokenizer
 import logging
+from torch.utils.data import SequentialSampler
 
 def accuracy_score(all_labels, all_preds):
     correct_count = 0
@@ -42,7 +43,26 @@ def get_Dataset(dataset, tokenizer,max_length):
     train_data = TensorDataset(token_ids, token_attn, label)
     return train_data 
 
-#unsure if we should considering casing, punctuation when replacing — original: Product and geography are what make cream skimming work., modified: parks and geography are what make cream skimming work.
+def get_Replaced_Dataset(dataset, tokenizer,max_length):
+    token_id_arr = []
+    token_attn_arr = []
+    seq_len  = torch.Tensor(dataset['sequence_length'])
+    seq_len = seq_len.type(torch.LongTensor) 
+    for i in range(len(dataset['premise'])): 
+        token_ids, token_attn = tokenize(dataset["premise"][i],dataset["hypothesis"][i], tokenizer, max_length = max_length, padding = "max_length")
+        token_id_arr.append(token_ids)
+        token_attn_arr.append(token_attn)
+    #pad each tensor in tensor_id, tensor_attn to the max seq_len*n tensor
+
+    max_id = max(tensor.shape[0] for tensor in token_id_arr)
+    max_attn = max(tensor.shape[0] for tensor in token_attn_arr)
+    padded_id = [torch.cat((tensor, torch.zeros(max_length - tensor.shape[0], tensor.shape[1], dtype=torch.int32))) for tensor in token_id_arr]
+    padded_attn = [torch.cat((tensor, torch.zeros(max_length - tensor.shape[0], tensor.shape[1], dtype=torch.int32))) for tensor in token_attn_arr]
+    
+    tensor_id = torch.stack(padded_id, dim = 0)
+    tensor_attn = torch.stack(padded_attn, dim = 0)
+    replaced_data = TensorDataset(tensor_id, tensor_attn, seq_len)
+    return replaced_data
 
 def get_vocab(dataset):
     vocab = []
@@ -56,28 +76,67 @@ def get_vocab(dataset):
                 vocab.append(word)
     return vocab
 
-def word_label_sensitivity(dataset, n, model, device): #Tianyi: this function runs slow, we may need to implement the batch version to speed it up
-    #can be called for matched, mismatched validation sets — use untokenized data
-
-    logger =  logging.getLogger('sensitivity')
+def replaced_data(dataset, n):
     vocab = get_vocab(dataset)
     labels = dataset["label"]
     premise = dataset["premise"]
     index = 0
-    sensitivity = []
+    replaced_hypothesis = []
+    replaced_premise = []
+    sequence_length = []
     for hypothesis in dataset["hypothesis"]:
-        # logger.info(f"-----hypothesis:{hypothesis}")
+        len = 0
+        temp_hypothesis = hypothesis[:]
+        replaced_per_sentence = []
+        replaced_labels_per_sentence = []
+        replaced_premise_per_sentence = []
+        for word in hypothesis.replace(".", " ").split():
+            len += 1
+            for i in range(n):
+                replacement = random.choice(vocab)
+                hypothesis_replaced = re.sub(r'\b' + re.escape(word) + r'\b', replacement, temp_hypothesis)
+                replaced_per_sentence.append(hypothesis_replaced)
+                replaced_premise_per_sentence.append(premise[index])
+        index += 1
+        sequence_length.append(len)
+        replaced_premise.append(replaced_premise_per_sentence)
+        replaced_hypothesis.append(replaced_per_sentence)
+    data_dict = {
+        "premise": replaced_premise,
+        "hypothesis": replaced_hypothesis,
+        "sequence_length": sequence_length
+    }
+    return data_dict
 
-        input_ids, att_mask = tokenize(premise[index], hypothesis, RobertaTokenizer.from_pretrained('roberta-base'), 512)
-        input_ids, att_mask = input_ids.to(device), att_mask.to(device)
+"""
+def word_label_sensitivity(replaced_dataloader, original_dataloader, n, model, device): #Tianyi: this function runs slow, we may need to implement the batch version to speed it up
+    #can be called for matched, mismatched validation sets — use untokenized data
+
+    logger =  logging.getLogger('sensitivity')
+    index = 0
+    sensitivity = []
+    label_change_per_word = 0
+    len = 0
+    for replaced_batch, original_batch in zip(replaced_dataloader, original_dataloader):
+        # logger.info(f"-----hypothesis:{hypothesis}")
+        input_ids, att_masks = original_batch[0].to(device), original_batch[1].to(device)
         with torch.no_grad():
             output = model.forward(input_ids, att_mask)
-            original_label =torch.argmax(output, dim=1)  
+            original_label = torch.argmax(output, dim=1)  
 
         # logger.info("original label:", original_label)
-        temp_hypothesis = hypothesis[:]
-        label_change_per_word = 0
-        len = 0
+
+        #batch_size = n
+        input_ids, att_mask = replaced_batch[0].to(device), replaced_batch[1].to(device)
+        with torch.no_grad():
+            output = model.forward(input_ids, att_mask)
+            pred_label = torch.argmax(output, dim=1)
+            if original_label != pred_label:
+                label_change += 1
+                
+        label_change /= n
+        label_change_per_word += label_change 
+        
         for word in hypothesis.replace(".", " ").split():
             len += 1
             label_change = 0
@@ -107,6 +166,54 @@ def word_label_sensitivity(dataset, n, model, device): #Tianyi: this function ru
         sensitivity.append(label_change_per_word/len)
         index += 1
     return sensitivity 
+"""
 
 
+def word_label_sensitivity(replaced_dataloader, original_dataloader, model, device, n):
+    #datasets are now different sizes, replaced dataset is n*word*original_size
+    sensitivity = []
+    label_change = 0
+    label_change_per_word = 0
+    for replaced_batch, original_batch in zip(replaced_dataloader, original_dataloader):
+    '''remove padding for replaced_batch
+        def contains_only_zeros(tensor):
+            return not torch.any(tensor != 0)
+
+        
+        rep_input_ids = [[tensor for tensor in row if not contains_only_zeros(tensor)] for row in replaced_batch[0]]
+        rep_input_ids = torch.stack([torch.stack(row) for row in rep_input_ids])
+        
+        # Filter out tensors that contain only zeros in padded_attn
+        rep_att_masks = [[tensor for tensor in row if not contains_only_zeros(tensor)] for row in replaced_batch[1]]
+        rep_att_masks = torch.stack([torch.stack(row) for row in rep_att_masks])
+    '''
+        
+        seq_len = replaced_batch[2] #array of sequence lengths 
+
+        repeated_id = [tensor.repeat(n, 1) for tensor in original_batch[0]]
+        repeated_att = [tensor.repeat(n, 1) for tensor in original_batch[1]]
+        
+        org_input_ids = torch.cat(repeated_id, dim=0)
+        org_att_masks = torch.cat(repeated_att, dim=0)
+        
+        input_ids, att_masks = org_input_ids.to(device), org_att_masks.to(device)
+        with torch.no_grad():
+            output = model.forward(input_ids, att_masks)
+            original_label = torch.argmax(output, dim=1)
+            
+        input_ids, att_mask = replaced_batch[0].to(device), replaced_batch[1].to(device)
+        with torch.no_grad():
+            output = model.forward(input_ids, att_masks)
+            pred_label = torch.argmax(output, dim=1)
+        #finish calculation
+
+    
+    return sensitivity
+
+
+
+
+
+
+    
 # if __name__ == "__main__":

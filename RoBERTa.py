@@ -75,7 +75,7 @@ class TextClassifier(nn.Module):
     def loss(self,logits,labels):
         loss = self.criterion(logits, labels)
         return loss
-    def validation(self,valid_dataloader,valid_raw,epoch,device,save=False):
+    def validation(self,valid_dataloader, replaced_dataloader, epoch,device,save=False):
         logger =  logging.getLogger('training')
         self.model.eval()
         all_acc = []
@@ -91,7 +91,7 @@ class TextClassifier(nn.Module):
                 accuracy = accuracy_score(labels, predict)
                 all_loss.append(loss)
                 all_acc.append(accuracy)
-        sensitivity = word_label_sensitivity(valid_raw, self.replace_size, self, device)
+        sensitivity = word_label_sensitivity(replaced_dataloader, valid_dataloader, self, device, self.replace_size)
         self.sensitivity_2dlist_report.append(sensitivity)
         self.validation_loss_report.append(sum(all_loss)    / len(all_loss) )
         self.validation_acc_report.append(sum(all_acc) / len(all_acc))
@@ -106,9 +106,9 @@ class TextClassifier(nn.Module):
                 'optimizer_state_dict': self.optimizer.state_dict(),
                 'acc': sum(all_acc) / len(all_acc),}, './checkpoints/'+str(epoch)+'_model.pt')
 
-    def train(self,train_dataloader,valid_dataloader,valid_raw,device):
+    def train(self,train_dataloader,valid_dataloader,replaced_dataloader, device):
         logger =  logging.getLogger('training')
-        self.validation(valid_dataloader,valid_raw,0,device,False)
+        self.validation(valid_dataloader,replaced_dataloader, 0,device,False)
         self.model.train()
         report_counter  = 0
         total_counter = 0
@@ -135,7 +135,7 @@ class TextClassifier(nn.Module):
                     logger.info(f'======total trained data counter: {total_counter}======')
                     logger.info(f'report_counter hit { self.report_number}, will do validation')
                     # Validation
-                    self.validation(valid_dataloader,valid_raw,epoch,device,False)
+                    self.validation(valid_dataloader, replaced_dataloader,epoch,device,False)
 
 
                     temp1 = torch.tensor(self.sensitivity_2dlist_report, device = 'cpu')
