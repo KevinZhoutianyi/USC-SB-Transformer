@@ -57,7 +57,7 @@ parser.add_argument('--epochs',           type=int,             default=5,      
 parser.add_argument('--lr',               type=float,           default=1e-5,               help='lr')
 parser.add_argument('--gamma',            type=float,           default=1,                  help='lr*gamma after each test')
 
-args = parser.parse_args(args=[])#(args=['--batch_size', '8',  '--no_cuda'])#used in ipynb
+args = parser.parse_args()#(args=['--batch_size', '8',  '--no_cuda'])#used in ipynb
 logger.info(f'args:{args}')
 
 dataset = load_dataset('glue', 'mnli')
