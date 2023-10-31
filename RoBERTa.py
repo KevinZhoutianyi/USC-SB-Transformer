@@ -118,9 +118,11 @@ class TextClassifier(nn.Module):
         self.model.train()
         report_counter  = 0
         total_counter = 0
+        epoch_train_loss = 0.0
+        batch_train_loss = 0.0
+        batch_loss_counter = 0
         for epoch in range(self.epochs):
             #train
-            train_loss = 0.0
             for step,batch in enumerate(train_dataloader):
                 report_counter += len(batch[0])
                 total_counter += len(batch[0])
@@ -132,12 +134,17 @@ class TextClassifier(nn.Module):
                 loss = self.loss(logits,labels)
                 loss.backward()
                 self.optimizer.step()
-                train_loss += loss.item()
+                epoch_train_loss += loss.item()
+                batch_train_loss += loss.item()
+                loss_counter += 1
 
 
                 if report_counter > self.report_number:
-                    self.train_loss_report.append(train_loss/(step+1))
+                    logger.info(f"Average training loss for each batch:{batch_train_loss/(batch_loss_counter)} ")
+                    self.train_loss_report.append(batch_train_loss/(batch_loss_counter))
                     report_counter  = 0
+                    batch_loss_counter = 0
+                    batch_train_loss = 0
                     logger.info(f'======total trained data counter: {total_counter}======')
                     logger.info(f'report_counter hit { self.report_number}, will do validation')
                     # Validation
