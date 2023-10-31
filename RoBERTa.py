@@ -15,7 +15,7 @@ from transformers import AutoModelForSequenceClassification
 from transformers import AutoTokenizer
 import logging    # first of all import the module
 from datetime import datetime
-
+from transformers import RobertaConfig, RobertaForSequenceClassification
 
 # %%
 def seed_torch(seed=0):
@@ -27,9 +27,8 @@ def seed_torch(seed=0):
     torch.backends.cudnn.deterministic = True
     
 seed_torch(1)
-now  = datetime.now()
-def get_savefilename(variablename):
-    logfilename = now.strftime('./logs/'+variablename+'_%H_%M_%d_%m_%Y')
+def get_savefilename(foldername,filename):
+    logfilename = os.path.join(foldername, filename)
     return logfilename
 # %%
 # EXAMPLE
@@ -46,10 +45,16 @@ def get_savefilename(variablename):
 
 # %%
 class TextClassifier(nn.Module):
-    def __init__(self, args, model_name='roberta-base', num_labels=3 ):
+    def __init__(self, args, foldername ):
         super(TextClassifier, self).__init__()
-        self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-        self.model =AutoModelForSequenceClassification.from_pretrained(model_name, num_labels=num_labels) 
+        if args.model_name=='roberta-scratch':
+            configuration = AutoModelForSequenceClassification.from_pretrained('roberta-base', num_labels=3).config
+            self.model = RobertaForSequenceClassification(configuration)
+            self.tokenizer = AutoTokenizer.from_pretrained('roberta-base')
+        else:
+            self.tokenizer = AutoTokenizer.from_pretrained(args.model_name)
+            self.model =AutoModelForSequenceClassification.from_pretrained(args.model_name, num_labels=args.num_labels) 
+
         self.batch_size = args.batch_size
         self.max_length = args.max_length
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -64,6 +69,7 @@ class TextClassifier(nn.Module):
         self.sensitivity_2dlist_report = []
         self.train_loss_report = []
         self.validation_loss_report = []
+        self.log_foldername = foldername
         self.validation_acc_report = []
 
     def forward(self,x,x_att):
@@ -142,10 +148,10 @@ class TextClassifier(nn.Module):
                     temp2= torch.tensor(self.train_loss_report, device = 'cpu')
                     temp3 = torch.tensor(self.validation_loss_report, device = 'cpu')
                     temp4 = torch.tensor(self.validation_acc_report, device = 'cpu')
-                    np.save(get_savefilename('sensitivity'), temp1)
-                    np.save(get_savefilename('trainloss'),temp2)
-                    np.save(get_savefilename('validationloss'), temp3)
-                    np.save(get_savefilename('validationacc'), temp4)
+                    np.save(get_savefilename(self.log_foldername,'sensitivity'), temp1)
+                    np.save(get_savefilename(self.log_foldername,'trainloss'),temp2)
+                    np.save(get_savefilename(self.log_foldername,'validationloss'), temp3)
+                    np.save(get_savefilename(self.log_foldername,'validationacc'), temp4)
 
 
             logger.info(f"Epoch {epoch+1}/{self.epochs}, Train Loss: {train_loss/(step+1):.4f}")
@@ -155,3 +161,5 @@ class TextClassifier(nn.Module):
 
 
 
+
+# %%

@@ -28,14 +28,18 @@ from transformers import AutoTokenizer
 import logging    # first of all import the module
 from datetime import datetime
 
-logfilename = datetime.now().strftime('./logs/logfile_%H_%M_%d_%m_%Y.log')
+foldername = datetime.now().strftime('./logs/%H_%M_%d_%m_%Y')
+# Create the folder if it doesn't exist
+if not os.path.exists(foldername):
+    os.makedirs(foldername)
+# Define the log filename inside the newly created folder
+logfilename = os.path.join(foldername, 'logfile.log')
+
 logging.getLogger().setLevel(logging.INFO)
 
 logging.basicConfig(filename=logfilename, filemode='w', format='%(asctime)s %(levelname)s - %(funcName)s: %(message)s')
-# %%
 handle = "root"
 logger = logging.getLogger(handle)
-
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 parser = argparse.ArgumentParser("main")
@@ -43,8 +47,9 @@ parser = argparse.ArgumentParser("main")
 parser.add_argument('--train_num_points', type=int,             default = 10000,            help='train data number')
 parser.add_argument('--valid_num_points', type=int,             default = 1000,               help='validation data number')
 parser.add_argument('--report_num_points',type=int,             default = 500,              help='report number')
-parser.add_argument('--model_name',       type=str,             default = 'roberta-base',   help='model name')
+parser.add_argument('--model_name',       type=str,             default = 'roberta-scratch',   help='model name')
 parser.add_argument('--max_length',       type=int,             default=64,                 help='max_length')
+parser.add_argument('--num_labels',       type=int,             default=3,                 help='num_labels')
 parser.add_argument('--batch_size',       type=int,             default=32,                help='Batch size')
 parser.add_argument('--num_workers',      type=int,             default=0,                  help='num_workers')
 parser.add_argument('--replace_size',     type=int,             default=3,                  help='to test sensitivity, we need to replance each word by x random words from vocab, here we specify the x')
@@ -71,7 +76,11 @@ train = dataset['train'][:args.train_num_points]
 valid = dataset['validation_matched'][-args.valid_num_points:]
 replaced = replaced_data(valid, args.replace_size) 
 
-tokenizer = RobertaTokenizer.from_pretrained(args.model_name)
+
+if args.model_name=='roberta-scratch':
+    tokenizer = AutoTokenizer.from_pretrained('roberta-base')
+else:
+    tokenizer = AutoTokenizer.from_pretrained(args.model_name)
 #mnli
 #The Multi-Genre Natural Language Inference Corpus is a crowdsourced collection of sentence pairs with textual entailment annotations. Given a premise sentence and a hypothesis sentence, the task is to predict whether the premise entails the hypothesis (entailment), contradicts the hypothesis (contradiction), or neither (neutral). The premise sentences are gathered from ten different sources, including transcribed speech, fiction, and government reports. The authors of the benchmark use the standard test set, for which they obtained private labels from the RTE authors, and evaluate on both the matched (in-domain) and mismatched (cross-domain) section. They also uses and recommend the SNLI corpus as 550k examples of auxiliary training data.
 
@@ -88,7 +97,7 @@ replaced_dataloader = DataLoader(replaced_data, sampler=SequentialSampler(replac
 
 # %%
 
-model = TextClassifier(args).to(device)
+model = TextClassifier(args,foldername).to(device)
 model.train(train_dataloader,valid_dataloader,replaced_dataloader,device)
 
 
