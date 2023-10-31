@@ -136,12 +136,12 @@ class TextClassifier(nn.Module):
                 self.optimizer.step()
                 epoch_train_loss += loss.item()
                 batch_train_loss += loss.item()
-                loss_counter += 1
+                batch_loss_counter += 1
 
 
                 if report_counter > self.report_number:
                     logger.info(f"Average training loss for each batch:{batch_train_loss/(batch_loss_counter)} ")
-                    self.train_loss_report.append(batch_train_loss/(batch_loss_counter))
+                    self.train_loss_report.append(batch_train_loss/(batch_loss_counter+1))
                     report_counter  = 0
                     batch_loss_counter = 0
                     batch_train_loss = 0
