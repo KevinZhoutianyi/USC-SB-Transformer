@@ -27,9 +27,9 @@ def seed_torch(seed=0):
     torch.backends.cudnn.deterministic = True
     
 seed_torch(1)
-
+now  = datetime.now()
 def get_savefilename(variablename):
-    logfilename = datetime.now().strftime('./logs/'+variablename+'_%H_%M_%d_%m_%Y')
+    logfilename = now.strftime('./logs/'+variablename+'_%H_%M_%d_%m_%Y')
     return logfilename
 # %%
 # EXAMPLE

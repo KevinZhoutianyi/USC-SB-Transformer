@@ -40,12 +40,12 @@ logger = logging.getLogger(handle)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 parser = argparse.ArgumentParser("main")
 
-parser.add_argument('--train_num_points', type=int,             default = 10000,              help='train data number')
-parser.add_argument('--valid_num_points', type=int,             default = 32,              help='validation data number')
+parser.add_argument('--train_num_points', type=int,             default = 10000,            help='train data number')
+parser.add_argument('--valid_num_points', type=int,             default = 1000,               help='validation data number')
 parser.add_argument('--report_num_points',type=int,             default = 500,              help='report number')
 parser.add_argument('--model_name',       type=str,             default = 'roberta-base',   help='model name')
-parser.add_argument('--max_length',       type=int,             default=64,                help='max_length')
-parser.add_argument('--batch_size',       type=int,             default=128,                  help='Batch size')
+parser.add_argument('--max_length',       type=int,             default=64,                 help='max_length')
+parser.add_argument('--batch_size',       type=int,             default=32,                help='Batch size')
 parser.add_argument('--num_workers',      type=int,             default=0,                  help='num_workers')
 parser.add_argument('--replace_size',     type=int,             default=3,                  help='to test sensitivity, we need to replance each word by x random words from vocab, here we specify the x')
 parser.add_argument('--epochs',           type=int,             default=5,                  help='num of epochs')
@@ -67,10 +67,9 @@ logger.info(f'test_mismatched set size: {len(dataset["test_mismatched"])}')
 
 
 
-# %%
 train = dataset['train'][:args.train_num_points]
 valid = dataset['validation_matched'][-args.valid_num_points:]
-replaced = replaced_data(valid, args.replace_size)
+replaced = replaced_data(valid, args.replace_size) 
 
 tokenizer = RobertaTokenizer.from_pretrained(args.model_name)
 #mnli
@@ -83,14 +82,14 @@ train_dataloader = DataLoader(train_data, sampler= SequentialSampler(train_data)
 valid_data = get_Dataset(valid, tokenizer,max_length=args.max_length)
 valid_dataloader = DataLoader(valid_data, sampler=SequentialSampler(valid_data), 
                         batch_size=args.batch_size, pin_memory=args.num_workers>0, num_workers=args.num_workers)
-replaced_data = get_Dataset(replaced, tokenizer, max_length = args.max_length)
-replaced_dataloader = DataLoader(replaced_data, sampler=SequentialSampler(valid_data), 
+replaced_data = get_Replaced_Dataset(replaced, tokenizer, max_length = args.max_length)
+replaced_dataloader = DataLoader(replaced_data, sampler=SequentialSampler(replaced_data), 
                         batch_size=args.batch_size, pin_memory=args.num_workers>0, num_workers=args.num_workers)
+
 # %%
 
 model = TextClassifier(args).to(device)
-model.train(train_dataloader,valid_dataloader,replaced_dataloader, device)
-
+model.train(train_dataloader,valid_dataloader,replaced_dataloader,device)
 
 
 
