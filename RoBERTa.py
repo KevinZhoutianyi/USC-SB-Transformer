@@ -30,20 +30,7 @@ seed_torch(1)
 def get_savefilename(foldername,filename):
     logfilename = os.path.join(foldername, filename)
     return logfilename
-# %%
-# EXAMPLE
-# tokenizer = RobertaTokenizer.from_pretrained('roberta-base')
-# model = RobertaModel.from_pretrained('roberta-base')
-# text_batch = ["I love Pixar.", "I don't care for Pixar."]
-# encoding = tokenizer(text_batch, return_tensors='pt', padding=True, truncation=True)
-# input_ids = encoding['input_ids']
-# attention_mask = encoding['attention_mask']
-# labels = torch.tensor([1,0]).unsqueeze(0)
-# outputs = model(input_ids, attention_mask=attention_mask)
-# logging.info(outputs.last_hidden_state.shape) #number of data, sequence length, hidden state size
-# logging.info(outputs.last_hidden_state[:,0,:].shape) # connect this to FC layer (768,2) to do binary classfication)
 
-# %%
 class TextClassifier(nn.Module):
     def __init__(self, args, foldername ):
         super(TextClassifier, self).__init__()
@@ -75,7 +62,7 @@ class TextClassifier(nn.Module):
     def forward(self,x,x_att):
         output = self.model(x,attention_mask=x_att)
         logits = output.logits
-        logits = self.softmax(logits) #not sure whether we need this line to compute loss
+        # logits = self.softmax(logits) #not sure whether we need this line to compute loss
         return logits
     
     def loss(self,logits,labels):
