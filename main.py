@@ -28,7 +28,7 @@ from transformers import AutoTokenizer
 import logging    # first of all import the module
 from datetime import datetime
 
-foldername = datetime.now().strftime('./logs/%H_%M_%d_%m_%Y')
+foldername = datetime.now().strftime('./logs/%Y_%M_%d_%H_%M')
 # Create the folder if it doesn't exist
 if not os.path.exists(foldername):
     os.makedirs(foldername)
