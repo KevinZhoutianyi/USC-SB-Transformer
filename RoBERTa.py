@@ -148,7 +148,7 @@ class TextClassifier(nn.Module):
                     np.save(get_savefilename(self.log_foldername,'validationacc'), temp4)
 
 
-            logger.info(f"Epoch {epoch+1}/{self.epochs}, Train Loss: {train_loss/(step+1):.4f}")
+            logger.info(f"Epoch {epoch+1}/{self.epochs}, Train Loss: {epoch_train_loss/(step+1):.4f}")
 
             
    
