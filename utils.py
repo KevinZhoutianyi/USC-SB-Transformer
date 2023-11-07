@@ -197,18 +197,7 @@ def word_label_sensitivity(replaced_dataloader, original_dataloader, model, devi
         rep_att_masks = torch.stack([torch.stack(row) for row in rep_att_masks])
         '''
         
-        seq_len = replaced_batch[2] #array of sequence lengths 
-
-        # repeated_id = [tensor.repeat(n, 1) for tensor in original_batch[0]]
-        # repeated_att = [tensor.repeat(n, 1) for tensor in original_batch[1]]
-        
-        # org_input_ids = torch.cat(repeated_id, dim=0)
-        # org_att_masks = torch.cat(repeated_att, dim=0)
-        
-        # input_ids, att_masks = org_input_ids.to(device), org_att_masks.to(device)
-        # with torch.no_grad():
-        #     output = model.forward(input_ids, att_masks)
-        #     original_pred = torch.argmax(output, dim=1)
+        seq_len = replaced_batch[2] 
             
         logger.debug(f"replaced_batch.shape:{replaced_batch[0].shape}, replaced_batch.shape:{replaced_batch[1].shape}")
         batchsize,word_len_times_replace_size,_ = replaced_batch[0].shape
@@ -216,14 +205,20 @@ def word_label_sensitivity(replaced_dataloader, original_dataloader, model, devi
         replaced_input_att =    replaced_batch[1]#.reshape(batchsize*word_len_times_replace_size,-1)
         input_ids, att_masks =  replaced_input_ids.to(device), replaced_input_att.to(device) #
         temp_list = []
+        mask_list = []
         with torch.no_grad():
             for i in range(batchsize):#the shape of the input to the model is (word_len_times_replace_size,seq_length), if we don't iterate with the BS the input size is too large that will casue oom error
                 output = model.forward(input_ids[i], att_masks[i])
                 pred = torch.argmax(output, dim=1)
                 temp_list.append(pred)
+                mask = torch.zeros(pred.shape[0], dtype=torch.uint8)
+                mask[:seq_len[i]*n] = 1
+                mask_list.append(mask)
         #finish calculation
+        mask = torch.cat(mask_list).to(device) 
         replaced_pred = torch.cat(temp_list, dim=0)
         logger.debug(f"replaced_pred.shape:{replaced_pred.shape}")
+        logger.debug(f"mask.shape:{mask.shape}")
 
 
         ori_input_ids =    original_batch[0]
@@ -237,8 +232,9 @@ def word_label_sensitivity(replaced_dataloader, original_dataloader, model, devi
         repeat_ori_pred = ori_pred.repeat_interleave(word_len_times_replace_size)
         logger.debug(f"repeat_ori_pred.shape:{repeat_ori_pred.shape}")
 
-        wrong = torch.sum(replaced_pred != repeat_ori_pred).item()
-        total = len(replaced_pred)
+
+        wrong = torch.sum(  (replaced_pred != repeat_ori_pred)*mask ).item()
+        total = torch.sum(mask)
         sens = wrong / total
         sensitivity.append(sens)
     logger.debug(f"sensitivity:{sensitivity}")
