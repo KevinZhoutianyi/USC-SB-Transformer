@@ -236,7 +236,7 @@ def word_label_sensitivity(replaced_dataloader, original_dataloader, model, devi
         wrong = torch.sum(  (replaced_pred != repeat_ori_pred)*mask ).item()
         total = torch.sum(mask)
         sens = wrong / total
-        sensitivity.append(sens)
+        sensitivity.append(sens.item())
     logger.debug(f"sensitivity:{sensitivity}")
 
     
