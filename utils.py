@@ -7,6 +7,8 @@ import re
 from transformers import RobertaTokenizer
 import logging
 from torch.utils.data import SequentialSampler
+import string
+from collections import Counter
 
 def accuracy_score(all_labels, all_preds):
     correct_count = 0
@@ -20,37 +22,60 @@ def accuracy_score(all_labels, all_preds):
 
 
 
-def tokenize(premise, hypothesis,tokenizer, max_length, padding = True):
+def tokenize(premise, hypothesis,tokenizer, model, max_length, padding = True):
     # tokenizer.build_inputs_with_special_tokens(premise,hyp)
     # logger.info('premise',tokenizer(text=premise, return_tensors='pt', add_special_tokens=True, padding=padding, truncation = True, max_length = max_length)[0])
     # logger.info('hyper',tokenizer(text=hypothesis, return_tensors='pt', add_special_tokens=True, padding=padding, truncation = True, max_length = max_length)[0])
-    encoding = tokenizer(text=premise,text_pair = hypothesis, return_tensors='pt', add_special_tokens=True, padding=padding, truncation = True, max_length = max_length)
+    encoding = []
+    input_ids = []
+    attention_mask = []
+    if (model == 'lstm'):
+        preprocessed_sentences = [
+        re.sub(r"[^\x00-\x7F]+", " ", re.sub('[' + re.escape(string.punctuation) + '0-9\\r\\t\\n]', ' ', f"{p} {h}").lower())
+        for p, h in zip(premise, hypothesis)
+        ]
+        counts = Counter()
+        for sentence in preprocessed_sentences:
+            words = sentence.split()  # Split the sentence into words
+            counts.update(words)
+            
+        vocab2index = {word: index+2 for index, (word, _) in enumerate(counts.items())}
+        vocab2index[""] = 0
+        vocab2index["UNK"] = 1
+
+        encoding = [tokenizer(sentence) for sentence in preprocessed_sentences]
+        enc1 = [torch.tensor([vocab2index.get(word, vocab2index["UNK"]) for word in sentence]) for sentence in encoding]
+        enc2d = torch.nn.utils.rnn.pad_sequence(enc1, batch_first=True, padding_value=vocab2index["UNK"])
+        input_ids = enc2d
+        attention_mask = torch.zeros_like(enc2d)
+    else:
+        encoding = tokenizer(text=premise,text_pair = hypothesis, return_tensors='pt', add_special_tokens=True, padding=padding, truncation = True, max_length = max_length)
     # encoding = tokenizer(premise, hypothesis, ...)
-    input_ids = encoding['input_ids']
-    attention_mask = encoding['attention_mask']
+        input_ids = encoding['input_ids']
+        attention_mask = encoding['attention_mask']
     # logger.info('input',input_ids[0])
     # logger.info('att',attention_mask[0])
     return input_ids, attention_mask
 
 
-def get_Dataset(dataset, tokenizer,max_length):
+def get_Dataset(dataset, tokenizer, model, max_length):
     premise , hypothesis = dataset['premise'],dataset['hypothesis']
     
     label  = torch.Tensor(dataset['label'])
     label = label.type(torch.LongTensor)  
     
-    token_ids, token_attn = tokenize(premise,hypothesis, tokenizer, max_length = max_length)
+    token_ids, token_attn = tokenize(premise,hypothesis, tokenizer, model, max_length = max_length)
     train_data = TensorDataset(token_ids, token_attn, label)
     return train_data 
 
-def get_Replaced_Dataset(dataset, tokenizer,max_length):
+def get_Replaced_Dataset(dataset, tokenizer,model, max_length):
     logger =  logging.getLogger('replaced_dataloader')
     token_id_arr = []
     token_attn_arr = []
     seq_len  = torch.Tensor(dataset['sequence_length'])
     seq_len = seq_len.type(torch.LongTensor) 
     for i in range(len(dataset['premise'])): 
-        token_ids, token_attn = tokenize(dataset["premise"][i],dataset["hypothesis"][i], tokenizer, max_length = max_length, padding = "max_length")
+        token_ids, token_attn = tokenize(dataset["premise"][i],dataset["hypothesis"][i], tokenizer, model, max_length = max_length, padding = "max_length")
         token_id_arr.append(token_ids)
         token_attn_arr.append(token_attn)
     #pad each tensor in tensor_id, tensor_attn to the max seq_len*n tensor
@@ -115,88 +140,13 @@ def replaced_data(dataset, n):
     }
     return data_dict
 
-"""
-def word_label_sensitivity(replaced_dataloader, original_dataloader, n, model, device): #Tianyi: this function runs slow, we may need to implement the batch version to speed it up
-    #can be called for matched, mismatched validation sets — use untokenized data
-
-    logger =  logging.getLogger('sensitivity')
-    index = 0
-    sensitivity = []
-    label_change_per_word = 0
-    len = 0
-    for replaced_batch, original_batch in zip(replaced_dataloader, original_dataloader):
-        # logger.info(f"-----hypothesis:{hypothesis}")
-        input_ids, att_masks = original_batch[0].to(device), original_batch[1].to(device)
-        with torch.no_grad():
-            output = model.forward(input_ids, att_mask)
-            original_label = torch.argmax(output, dim=1)  
-
-        # logger.info("original label:", original_label)
-
-        #batch_size = n
-        input_ids, att_mask = replaced_batch[0].to(device), replaced_batch[1].to(device)
-        with torch.no_grad():
-            output = model.forward(input_ids, att_mask)
-            pred_label = torch.argmax(output, dim=1)
-            if original_label != pred_label:
-                label_change += 1
-                
-        label_change /= n
-        label_change_per_word += label_change 
-        
-        for word in hypothesis.replace(".", " ").split():
-            len += 1
-            label_change = 0
-            for i in range(n):
-                #may need to seed this so its truly random 
-                replacement = random.choice(vocab)
-                hypothesis_replaced = re.sub(r'\b' + re.escape(word) + r'\b', replacement, temp_hypothesis)
-                # logger.info("one-word-replaced hypothesis:", hypothesis_replaced)
-                #i can parameterize the model and max length arguments as well if we think it is necessary 
-                # Tianyi: Yes, we need to parameterize the max length, so that this function only replace the i-th word where i < max_length
-                # logger.info("premise:", premise[index])
-                input_ids, att_mask = tokenize(premise[index], hypothesis_replaced, RobertaTokenizer.from_pretrained('roberta-base'), 512)
-                input_ids, att_mask = input_ids.to(device), att_mask.to(device)
-                # data = torch.tensor(data)
-                with torch.no_grad():
-                    output = model.forward(input_ids, att_mask)
-                    pred_label =torch.argmax(output, dim=1)  
-                    # logger.info("pred:", pred_label)
-                    if original_label != pred_label:
-                        label_change += 1
-            # logger.info("Label changed counter:", label_change)
-            label_change /= n
-            label_change_per_word += label_change
-            # logger.info('-------------------')
-        # logger.info(f"length:{len}")
-        # logger.info(f"label_change_per_word:{label_change_per_word}")  
-        sensitivity.append(label_change_per_word/len)
-        index += 1
-    return sensitivity 
-"""
-
-
 def word_label_sensitivity(replaced_dataloader, original_dataloader, model, device, n):
     #datasets are now different sizes, replaced dataset is n*word*original_size
     logger = logging.getLogger('compute_sensitivity')
     sensitivity = []
     label_change = 0
     label_change_per_word = 0
-    for replaced_batch, original_batch in zip(replaced_dataloader, original_dataloader):
-        '''
-        remove padding for replaced_batch
-        def contains_only_zeros(tensor):
-            return not torch.any(tensor != 0)
-
-        
-        rep_input_ids = [[tensor for tensor in row if not contains_only_zeros(tensor)] for row in replaced_batch[0]]
-        rep_input_ids = torch.stack([torch.stack(row) for row in rep_input_ids])
-        
-        # Filter out tensors that contain only zeros in padded_attn
-        rep_att_masks = [[tensor for tensor in row if not contains_only_zeros(tensor)] for row in replaced_batch[1]]
-        rep_att_masks = torch.stack([torch.stack(row) for row in rep_att_masks])
-        '''
-        
+    for replaced_batch, original_batch in zip(replaced_dataloader, original_dataloader):       
         seq_len = replaced_batch[2] #array of sequence lengths 
 
         # repeated_id = [tensor.repeat(n, 1) for tensor in original_batch[0]]
