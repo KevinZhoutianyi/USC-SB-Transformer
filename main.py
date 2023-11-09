@@ -48,7 +48,7 @@ parser = argparse.ArgumentParser("main")
 parser.add_argument('--train_num_points', type=int,             default = 1000,            help='train data number')
 parser.add_argument('--valid_num_points', type=int,             default = 500,               help='validation data number')
 parser.add_argument('--report_num_points',type=int,             default = 500,              help='report number')
-parser.add_argument('--model_name',       type=str,             default = 'roberta-base',   help='model name')
+parser.add_argument('--model_name',       type=str,             default = 'lstm',   help='model name')
 parser.add_argument('--max_length',       type=int,             default=32,                 help='max_length')
 parser.add_argument('--num_labels',       type=int,             default=3,                 help='num_labels')
 parser.add_argument('--batch_size',       type=int,             default=4,                help='Batch size')
@@ -110,8 +110,10 @@ replaced_dataloader = DataLoader(replaced_data, sampler=SequentialSampler(replac
                         batch_size=args.batch_size, pin_memory=args.num_workers>0, num_workers=args.num_workers)
 
 # %%
-
-model = LSTMTextClassifier(args,foldername).to(device)
+if args.model_name=='roberta-scratch':
+    model = TextClassifier(args,foldername).to(device)
+elif args.model_name=='lstm':
+    model = LSTMTextClassifier(args,foldername).to(device)
 model.train(train_dataloader,valid_dataloader,replaced_dataloader,device)
 
 
