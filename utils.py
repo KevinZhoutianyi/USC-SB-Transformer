@@ -29,7 +29,7 @@ def tokenize(premise, hypothesis,tokenizer, model, max_length, padding = True):
     encoding = []
     input_ids = []
     attention_mask = []
-    if (model == 'lstm'):
+    if (False):#we only use the roberta tokenizer for now
         preprocessed_sentences = [
         re.sub(r"[^\x00-\x7F]+", " ", re.sub('[' + re.escape(string.punctuation) + '0-9\\r\\t\\n]', ' ', f"{p} {h}").lower())
         for p, h in zip(premise, hypothesis)
@@ -60,10 +60,8 @@ def tokenize(premise, hypothesis,tokenizer, model, max_length, padding = True):
 
 def get_Dataset(dataset, tokenizer, model, max_length):
     premise , hypothesis = dataset['premise'],dataset['hypothesis']
-    
     label  = torch.Tensor(dataset['label'])
     label = label.type(torch.LongTensor)  
-    
     token_ids, token_attn = tokenize(premise,hypothesis, tokenizer, model, max_length = max_length)
     train_data = TensorDataset(token_ids, token_attn, label)
     return train_data 

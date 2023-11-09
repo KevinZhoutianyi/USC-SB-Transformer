@@ -89,8 +89,6 @@ replaced = replaced_data(valid, args.replace_size)
 if args.model_name=='roberta-scratch':
     tokenizer = AutoTokenizer.from_pretrained('roberta-base')
 elif args.model_name=='lstm':
-    # import torchtext
-    # tokenizer = torchtext.data.utils.get_tokenizer('basic_english')
     tokenizer = AutoTokenizer.from_pretrained('roberta-base')
 else:
     tokenizer = AutoTokenizer.from_pretrained(args.model_name)

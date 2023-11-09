@@ -106,7 +106,7 @@ class LSTMTextClassifier(nn.Module):
 
     def train(self,train_dataloader,valid_dataloader,replaced_dataloader, device):
         logger =  logging.getLogger('training')
-        self.validation(valid_dataloader,replaced_dataloader, 0,device,False)
+        # self.validation(valid_dataloader,replaced_dataloader, 0,device,False)
         self.model.train()
         report_counter  = 0
         total_counter = 0
