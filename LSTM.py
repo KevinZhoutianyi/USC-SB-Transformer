@@ -83,10 +83,8 @@ class LSTMTextClassifier(nn.Module):
                 text = text.to(device)
                 labels = labels.to(device)
                 logits = self.forward(text,text_mask)
-                print(logits)
                 loss = self.loss(logits,labels)
                 predict = torch.argmax(logits,dim=1)
-                print(predict)
                 accuracy = accuracy_score(labels, predict)
                 all_loss.append(loss)
                 all_acc.append(accuracy)
@@ -108,7 +106,7 @@ class LSTMTextClassifier(nn.Module):
 
     def train(self,train_dataloader,valid_dataloader,replaced_dataloader, device):
         logger =  logging.getLogger('training')
-        # self.validation(valid_dataloader,replaced_dataloader, 0,device,False)
+        self.validation(valid_dataloader,replaced_dataloader, 0,device,False)
         self.model.train()
         report_counter  = 0
         total_counter = 0
