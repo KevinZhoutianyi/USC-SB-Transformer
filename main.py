@@ -45,25 +45,25 @@ logger = logging.getLogger(handle)
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 parser = argparse.ArgumentParser("main")
 
-parser.add_argument('--train_num_points', type=int,             default = 10000,            help='train data number')
-parser.add_argument('--valid_num_points', type=int,             default = 1000,               help='validation data number')
+parser.add_argument('--train_num_points', type=int,             default = 1000,            help='train data number')
+parser.add_argument('--valid_num_points', type=int,             default = 500,               help='validation data number')
 parser.add_argument('--report_num_points',type=int,             default = 500,              help='report number')
 parser.add_argument('--model_name',       type=str,             default = 'roberta-base',   help='model name')
-parser.add_argument('--max_length',       type=int,             default=64,                 help='max_length')
+parser.add_argument('--max_length',       type=int,             default=32,                 help='max_length')
 parser.add_argument('--num_labels',       type=int,             default=3,                 help='num_labels')
-parser.add_argument('--batch_size',       type=int,             default=32,                help='Batch size')
+parser.add_argument('--batch_size',       type=int,             default=4,                help='Batch size')
 parser.add_argument('--num_workers',      type=int,             default=0,                  help='num_workers')
 parser.add_argument('--replace_size',     type=int,             default=3,                  help='to test sensitivity, we need to replance each word by x random words from vocab, here we specify the x')
-parser.add_argument('--epochs',           type=int,             default=5,                  help='num of epochs')
-parser.add_argument('--lr',               type=float,           default=1e-5,               help='lr')
-parser.add_argument('--gamma',            type=float,           default=1,                  help='lr*gamma after each test')
-parser.add_argument('--vocab_size',       type=int,             default=7113,               help='size of vocabulary')
+parser.add_argument('--epochs',           type=int,             default=500,                  help='num of epochs')
+parser.add_argument('--lr',               type=float,           default=1e-4,              help='lr')
+parser.add_argument('--gamma',            type=float,           default=1,                 help='lr*gamma after each test')
+parser.add_argument('--vocab_size',       type=int,             default=-1,                help='size of vocabulary')
 parser.add_argument('--embedding_dim',    type=int,             default=300,               help='embedding dimension')
-parser.add_argument('--hidden_dim',       type=int,             default=256,                 help='hidden dimension')
+parser.add_argument('--hidden_dim',       type=int,             default=256,               help='hidden dimension')
 parser.add_argument('--output_dim',       type=int,             default=3,                 help='number of classes')
 parser.add_argument('--num_layers',       type=int,             default=8,                 help='number of layers')
-parser.add_argument('--dropout',          type=int,             default=0.5,                 help='dropout')
-parser.add_argument('--pad_idx',          type=int,             default=1,                 help='ignores token with this index')
+parser.add_argument('--dropout',          type=int,             default=0,               help='dropout')
+parser.add_argument('--pad_idx',          type=int,             default=0,                 help='ignores token with this index')
 
 
 args = parser.parse_args()#(args=['--batch_size', '8',  '--no_cuda'])#used in ipynb
@@ -89,10 +89,12 @@ replaced = replaced_data(valid, args.replace_size)
 if args.model_name=='roberta-scratch':
     tokenizer = AutoTokenizer.from_pretrained('roberta-base')
 elif args.model_name=='lstm':
-    import torchtext
-    tokenizer = torchtext.data.utils.get_tokenizer('basic_english')
+    # import torchtext
+    # tokenizer = torchtext.data.utils.get_tokenizer('basic_english')
+    tokenizer = AutoTokenizer.from_pretrained('roberta-base')
 else:
     tokenizer = AutoTokenizer.from_pretrained(args.model_name)
+args.vocab_size = tokenizer.vocab_size
 #mnli
 #The Multi-Genre Natural Language Inference Corpus is a crowdsourced collection of sentence pairs with textual entailment annotations. Given a premise sentence and a hypothesis sentence, the task is to predict whether the premise entails the hypothesis (entailment), contradicts the hypothesis (contradiction), or neither (neutral). The premise sentences are gathered from ten different sources, including transcribed speech, fiction, and government reports. The authors of the benchmark use the standard test set, for which they obtained private labels from the RTE authors, and evaluate on both the matched (in-domain) and mismatched (cross-domain) section. They also uses and recommend the SNLI corpus as 550k examples of auxiliary training data.
 
@@ -109,7 +111,7 @@ replaced_dataloader = DataLoader(replaced_data, sampler=SequentialSampler(replac
 
 # %%
 
-model = TextClassifier(args,foldername).to(device)
+model = LSTMTextClassifier(args,foldername).to(device)
 model.train(train_dataloader,valid_dataloader,replaced_dataloader,device)
 
 

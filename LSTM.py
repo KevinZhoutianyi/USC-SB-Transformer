@@ -4,6 +4,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 from utils import *
+from torch.autograd import Variable 
 
 def seed_torch(seed=0):
     random.seed(seed)
@@ -29,6 +30,8 @@ class LSTMTextClassifier(nn.Module):
         self.dropout = nn.Dropout(args.dropout)
         
         self.epochs = args.epochs
+        self.num_layers = args.num_layers
+        self.hidden_dim = args.hidden_dim
         self.batch_size = args.batch_size
         self.max_length = args.max_length
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -44,12 +47,23 @@ class LSTMTextClassifier(nn.Module):
         self.log_foldername = foldername
         self.validation_acc_report = []
 
-    def forward(self, text, text_lengths):
+    def forward(self, text,text_mask):
+        logger =  logging.getLogger('training')
+        logger.debug(f"text.shape:{text.shape}")
         embedded = self.embedding(text)
-        packed_embedded = nn.utils.rnn.pack_padded_sequence(embedded, text_lengths, batch_first=True, enforce_sorted=False)
-        packed_output, (hidden, cell) = self.model(packed_embedded)
-        output, _ = nn.utils.rnn.pad_packed_sequence(packed_output, batch_first=True)
-        final_hidden_state = hidden[-1, :, :]
+        logger.debug(f"embedded.shape:{embedded.shape}")
+        logger.debug(f"text_mask.shape:{text_mask.shape}")
+        text_lengths = torch.sum(text_mask,dim=1)
+        text_lengths = text_lengths.cpu()
+        # packed_embedded = nn.utils.rnn.pack_padded_sequence(embedded, text_lengths, batch_first=True, enforce_sorted=False)
+        # logger.debug(f"packed_embedded shape:{packed_embedded.shape}")
+        h_0 = torch.zeros((self.num_layers,embedded.shape[0], self.hidden_dim),device=self.device)#hidden state
+        c_0 = torch.zeros((self.num_layers,embedded.shape[0], self.hidden_dim),device=self.device) #internal state
+        logger.debug(f"h_0.shape:{h_0.shape}")
+        logger.debug(f"c_0.shape:{c_0.shape}")
+        packed = torch.nn.utils.rnn.pack_padded_sequence(embedded, text_lengths, batch_first=True, enforce_sorted=False)
+        output, (hn, cn) = self.model(packed, (h_0, c_0)) 
+        final_hidden_state = hn[-1,:, :]
         logits = self.fc(final_hidden_state)
         return logits
 
@@ -64,12 +78,10 @@ class LSTMTextClassifier(nn.Module):
         all_loss = []
         with torch.no_grad():
             for step,batch in enumerate(valid_dataloader):
-                text, text_lengths = batch[0], torch.Tensor([len(sentence) for sentence in batch[0]]) 
-                labels = batch[2]
+                text, text_mask,labels = batch
                 text = text.to(device)
-                text_lengths = text_lengths.to(device)
                 labels = labels.to(device)
-                logits = self.forward(text, text_lengths)
+                logits = self.forward(text,text_mask)
                 loss = self.loss(logits,labels)
                 predict = torch.argmax(logits,dim=0)
                 accuracy = accuracy_score(labels, predict)
@@ -89,6 +101,7 @@ class LSTMTextClassifier(nn.Module):
                 'model_state_dict': self.model.state_dict(),
                 'optimizer_state_dict': self.optimizer.state_dict(),
                 'acc': sum(all_acc) / len(all_acc),}, './checkpoints/'+str(epoch)+'_model.pt')
+        self.model.train()
 
     def train(self,train_dataloader,valid_dataloader,replaced_dataloader, device):
         logger =  logging.getLogger('training')
@@ -104,14 +117,12 @@ class LSTMTextClassifier(nn.Module):
             for step,batch in enumerate(train_dataloader):
                 report_counter += len(batch[0])
                 total_counter += len(batch[0])
-                text, text_lengths = batch[0], torch.Tensor([len(sentence) for sentence in batch[0]]) 
-                labels = batch[2]
+                text, text_mask,labels = batch
                 text = text.to(device)
-                text_lengths = text_lengths.to(device)
                 labels = labels.to(device)    
 
                 self.optimizer.zero_grad()
-                logits = self.forward(text, text_lengths)
+                logits = self.forward(text,text_mask)
                 loss = self.loss(logits,labels)
                 loss.backward()
                 self.optimizer.step()
