@@ -55,6 +55,7 @@ class LSTMTextClassifier(nn.Module):
         logger.debug(f"text_mask.shape:{text_mask.shape}")
         text_lengths = torch.sum(text_mask,dim=1)
         text_lengths = text_lengths.cpu()
+        text_lengths[text_lengths <= 0] = 1
         # packed_embedded = nn.utils.rnn.pack_padded_sequence(embedded, text_lengths, batch_first=True, enforce_sorted=False)
         # logger.debug(f"packed_embedded shape:{packed_embedded.shape}")
         h_0 = torch.zeros((self.num_layers,embedded.shape[0], self.hidden_dim),device=self.device)#hidden state

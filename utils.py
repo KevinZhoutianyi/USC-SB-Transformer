@@ -172,7 +172,7 @@ def word_label_sensitivity(replaced_dataloader, original_dataloader, model, devi
         mask_list = []
         with torch.no_grad():
             for i in range(batchsize):#the shape of the input to the model is (word_len_times_replace_size,seq_length), if we don't iterate with the BS the input size is too large that will casue oom error
-                att_masks[i][:,1] = 1 #make the lenght of seq > 0, otherwise raise error for pack_padded_sequence in LSTM
+                # att_masks[i][:,1] = 1 #make the lenght of seq > 0, otherwise raise error for pack_padded_sequence in LSTM
                 output = model.forward(input_ids[i], att_masks[i])
                 pred = torch.argmax(output, dim=1)
                 temp_list.append(pred)
