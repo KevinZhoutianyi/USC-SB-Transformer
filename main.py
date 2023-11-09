@@ -60,7 +60,6 @@ parser.add_argument('--gamma',            type=float,           default=1,      
 parser.add_argument('--vocab_size',       type=int,             default=-1,                help='size of vocabulary')
 parser.add_argument('--embedding_dim',    type=int,             default=300,               help='embedding dimension')
 parser.add_argument('--hidden_dim',       type=int,             default=256,               help='hidden dimension')
-parser.add_argument('--output_dim',       type=int,             default=3,                 help='number of classes')
 parser.add_argument('--num_layers',       type=int,             default=8,                 help='number of layers')
 parser.add_argument('--dropout',          type=int,             default=0,               help='dropout')
 parser.add_argument('--pad_idx',          type=int,             default=0,                 help='ignores token with this index')

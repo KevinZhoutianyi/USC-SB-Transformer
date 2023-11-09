@@ -35,7 +35,7 @@ class TextClassifier(nn.Module):
     def __init__(self, args, foldername ):
         super(TextClassifier, self).__init__()
         if args.model_name=='roberta-scratch':
-            configuration = AutoModelForSequenceClassification.from_pretrained('roberta-base', num_labels=3).config
+            configuration = AutoModelForSequenceClassification.from_pretrained('roberta-base', num_labels=args.num_labels).config
             self.model = RobertaForSequenceClassification(configuration)
             self.tokenizer = AutoTokenizer.from_pretrained('roberta-base')
         else:

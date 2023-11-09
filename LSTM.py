@@ -26,7 +26,7 @@ class LSTMTextClassifier(nn.Module):
         
         self.embedding = nn.Embedding(args.vocab_size, args.embedding_dim, padding_idx=args.pad_idx)
         self.model = nn.LSTM(args.embedding_dim, args.hidden_dim, num_layers=args.num_layers, dropout=args.dropout, batch_first=True)
-        self.fc = nn.Linear(args.hidden_dim, args.output_dim)
+        self.fc = nn.Linear(args.hidden_dim, args.num_labels)
         self.dropout = nn.Dropout(args.dropout)
         
         self.epochs = args.epochs
@@ -83,8 +83,10 @@ class LSTMTextClassifier(nn.Module):
                 text = text.to(device)
                 labels = labels.to(device)
                 logits = self.forward(text,text_mask)
+                print(logits)
                 loss = self.loss(logits,labels)
-                predict = torch.argmax(logits,dim=0)
+                predict = torch.argmax(logits,dim=1)
+                print(predict)
                 accuracy = accuracy_score(labels, predict)
                 all_loss.append(loss)
                 all_acc.append(accuracy)
