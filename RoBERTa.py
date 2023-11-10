@@ -36,12 +36,16 @@ class TextClassifier(nn.Module):
         super(TextClassifier, self).__init__()
         if args.model_name=='roberta-scratch':
             configuration = AutoModelForSequenceClassification.from_pretrained('roberta-base', num_labels=args.num_labels).config
+            configuration.num_hidden_layers = args.num_layers
+            configuration.num_attention_heads = args.num_head
+            configuration.hidden_size = args.hidden_dim
             self.model = RobertaForSequenceClassification(configuration)
             self.tokenizer = AutoTokenizer.from_pretrained('roberta-base')
         else:
             self.tokenizer = AutoTokenizer.from_pretrained(args.model_name)
             self.model =AutoModelForSequenceClassification.from_pretrained(args.model_name, num_labels=args.num_labels) 
 
+        self.config = configuration
         self.batch_size = args.batch_size
         self.max_length = args.max_length
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -101,6 +105,7 @@ class TextClassifier(nn.Module):
 
     def train(self,train_dataloader,valid_dataloader,replaced_dataloader, device):
         logger =  logging.getLogger('training')
+        logger.info(f'model config:{self.config}')
         self.validation(valid_dataloader,replaced_dataloader, 0,device,False)
         self.model.train()
         report_counter  = 0

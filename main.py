@@ -48,7 +48,7 @@ parser = argparse.ArgumentParser("main")
 parser.add_argument('--train_num_points', type=int,             default = 1000,            help='train data number')
 parser.add_argument('--valid_num_points', type=int,             default = 500,               help='validation data number')
 parser.add_argument('--report_num_points',type=int,             default = 500,              help='report number')
-parser.add_argument('--model_name',       type=str,             default = 'lstm',   help='model name')
+parser.add_argument('--model_name',       type=str,             default = 'roberta-scratch',   help='model name')
 parser.add_argument('--max_length',       type=int,             default=32,                 help='max_length')
 parser.add_argument('--num_labels',       type=int,             default=3,                 help='num_labels')
 parser.add_argument('--batch_size',       type=int,             default=4,                help='Batch size')
@@ -60,9 +60,11 @@ parser.add_argument('--gamma',            type=float,           default=1,      
 parser.add_argument('--vocab_size',       type=int,             default=-1,                help='size of vocabulary')
 parser.add_argument('--embedding_dim',    type=int,             default=300,               help='embedding dimension')
 parser.add_argument('--hidden_dim',       type=int,             default=256,               help='hidden dimension')
-parser.add_argument('--num_layers',       type=int,             default=8,                 help='number of layers')
+parser.add_argument('--num_head',         type=int,             default=4,               help='num of head in lstm')
+parser.add_argument('--num_layers',       type=int,             default=8,                 help='number of layers for LSTM and roberta')
 parser.add_argument('--dropout',          type=int,             default=0,               help='dropout')
-parser.add_argument('--pad_idx',          type=int,             default=0,                 help='ignores token with this index')
+parser.add_argument('--pad_idx',          type=int,             default=1,                 help='ignores token with this index')
+parser.add_argument('--exp_name',          type=str,            default='default',                 help='why you run this experiment?')
 
 
 args = parser.parse_args()#(args=['--batch_size', '8',  '--no_cuda'])#used in ipynb
