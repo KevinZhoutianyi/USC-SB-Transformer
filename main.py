@@ -115,6 +115,9 @@ elif args.model_name=='lstm':
     model = LSTMTextClassifier(args,foldername).to(device)
 model.train(train_dataloader,valid_dataloader,replaced_dataloader,device)
 
+sizeinmb = get_model_size(model)
+logger.info(f'model size: {sizeinmb}MB')
+
 
 
 # %%
