@@ -39,6 +39,8 @@ class TextClassifier(nn.Module):
             configuration.num_hidden_layers = args.num_layers
             configuration.num_attention_heads = args.num_head
             configuration.hidden_size = args.hidden_dim
+            configuration.attention_probs_dropout_prob = args.dropout
+            configuration.hidden_dropout_prob = args.dropout
             self.model = RobertaForSequenceClassification(configuration)
             self.tokenizer = AutoTokenizer.from_pretrained('roberta-base')
         else:
