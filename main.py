@@ -62,7 +62,7 @@ parser.add_argument('--embedding_dim',    type=int,             default=300,    
 parser.add_argument('--hidden_dim',       type=int,             default=256,               help='hidden dimension')
 parser.add_argument('--num_head',         type=int,             default=4,               help='num of head in lstm')
 parser.add_argument('--num_layers',       type=int,             default=8,                 help='number of layers for LSTM and roberta')
-parser.add_argument('--dropout',          type=int,             default=0,               help='dropout')
+parser.add_argument('--dropout',          type=int,             default=0.2,               help='dropout')
 parser.add_argument('--pad_idx',          type=int,             default=1,                 help='ignores token with this index')
 parser.add_argument('--exp_name',          type=str,            default='default',                 help='why you run this experiment?')
 
