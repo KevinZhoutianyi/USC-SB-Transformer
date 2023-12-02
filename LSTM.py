@@ -115,6 +115,7 @@ class LSTMTextClassifier(nn.Module):
         batch_loss_counter = 0
         for epoch in range(self.epochs):
             #train
+            epoch_train_loss = 0.0
             for step,batch in enumerate(train_dataloader):
                 report_counter += len(batch[0])
                 total_counter += len(batch[0])
