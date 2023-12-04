@@ -138,10 +138,12 @@ def replaced_data(dataset, n):
     }
     return data_dict
 
-def embedding_label_sensitivity(validation_dataloader,model,embedding,device,n):
+def embedding_label_sensitivity(validation_dataloader,model,embedding,device,n,variance):
     #1. we need to add noise to each token embedding 
     #2. for each sentence, we first get the origin prediction, and repeat by seqlen*n
     #TODO: is max_len to short? for this dataset
+
+    
     logger = logging.getLogger('sensitivity')
     sensitivity = []
     for batch in validation_dataloader:
@@ -178,11 +180,12 @@ def embedding_label_sensitivity(validation_dataloader,model,embedding,device,n):
                 # do we add noise n times to each token emb?
                 logger.debug(f"repeated_matrices:{repeated_matrices}") 
                 mean = 0
-                variance = 15#https://arxiv.org/pdf/2211.12316v1.pdf set it to 15, is not it too large? as the embedding is range from -1 to 1 when initialization
+                #https://arxiv.org/pdf/2211.12316v1.pdf set it to 15, is not it too large? as the embedding is range from -1 to 1 when initialization
                 std_dev = variance ** 0.5
+                guass =  torch.randn(n*seqlen[i],x_emb[i].shape[-1]) * std_dev + mean
                 for k in range(seqlen[i]):
                     for j in range(n):  # n different noises for each token
-                        noise = torch.randn(x_emb[i].shape[-1]) * std_dev + mean
+                        noise = guass[k * n + j]
                         repeated_matrices[k * n + j, k, :] += noise.to(device)
                 noised_embedding =repeated_matrices
                 logger.debug(f"noised_embedding:{noised_embedding}") 

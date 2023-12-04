@@ -66,7 +66,8 @@ parser.add_argument('--num_layers',       type=int,             default=8,      
 parser.add_argument('--dropout',          type=int,             default=0.2,               help='dropout')
 parser.add_argument('--pad_idx',          type=int,             default=1,                 help='ignores token with this index')
 parser.add_argument('--sensitivity_method',type=str,            default='word',                 help='embedding/word')
-parser.add_argument('--exp_name',          type=str,            default='default',                 help='why you run this experiment?')
+parser.add_argument('--embedding_noise_variance',         type=float,            default=15,                 help='the variance of the noise for the embedding sensitivity testing')
+parser.add_argument('--exp_name',                          type=str,            default='default',                 help='why you run this experiment?')
 
 
 args = parser.parse_args()#(args=['--batch_size', '8',  '--no_cuda'])#used in ipynb

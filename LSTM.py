@@ -46,6 +46,7 @@ class LSTMTextClassifier(nn.Module):
         self.validation_loss_report = []
         self.log_foldername = foldername
         self.validation_acc_report = []
+        self.embedding_noise_variance = args.embedding_noise_variance
 
     def forward(self, text,text_mask):
         logger =  logging.getLogger('training')
@@ -109,7 +110,7 @@ class LSTMTextClassifier(nn.Module):
         if(self.sensitivity_method == 'word'):
             sensitivity = word_label_sensitivity(replaced_dataloader, valid_dataloader, self, device, self.replace_size)
         elif self.sensitivity_method =='embedding':
-            sensitivity = embedding_label_sensitivity(valid_dataloader, self, self.embedding, device, self.replace_size)
+            sensitivity = embedding_label_sensitivity(valid_dataloader, self, self.embedding, device, self.replace_size, self.embedding_noise_variance)
         
         self.sensitivity_2dlist_report.append(sensitivity)
         self.validation_loss_report.append(sum(all_loss)    / len(all_loss) )

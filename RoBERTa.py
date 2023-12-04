@@ -47,6 +47,8 @@ class TextClassifier(nn.Module):
             self.tokenizer = AutoTokenizer.from_pretrained(args.model_name)
             self.model =AutoModelForSequenceClassification.from_pretrained(args.model_name, num_labels=args.num_labels) 
 
+
+        self.embedding_noise_variance = args.embedding_noise_variance
         self.sensitivity_method = args.sensitivity_method
         self.config = configuration
         self.batch_size = args.batch_size
@@ -102,7 +104,7 @@ class TextClassifier(nn.Module):
         if(self.sensitivity_method == 'word'):
             sensitivity = word_label_sensitivity(replaced_dataloader, valid_dataloader, self, device, self.replace_size)
         elif self.sensitivity_method =='embedding':
-            sensitivity = embedding_label_sensitivity(valid_dataloader, self, self.model.roberta.embeddings, device, self.replace_size)
+            sensitivity = embedding_label_sensitivity(valid_dataloader, self, self.model.roberta.embeddings, device, self.replace_size, self.embedding_noise_variance)
         self.sensitivity_2dlist_report.append(sensitivity)
         self.validation_loss_report.append(sum(all_loss)    / len(all_loss) )
         self.validation_acc_report.append(sum(all_acc) / len(all_acc))
