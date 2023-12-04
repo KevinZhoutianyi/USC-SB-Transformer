@@ -47,6 +47,7 @@ class TextClassifier(nn.Module):
             self.tokenizer = AutoTokenizer.from_pretrained(args.model_name)
             self.model =AutoModelForSequenceClassification.from_pretrained(args.model_name, num_labels=args.num_labels) 
 
+        self.sensitivity_method = args.sensitivity_method
         self.config = configuration
         self.batch_size = args.batch_size
         self.max_length = args.max_length
@@ -71,6 +72,13 @@ class TextClassifier(nn.Module):
         # logits = self.softmax(logits) #not sure whether we need this line to compute loss
         return logits
     
+    def forward_withembedding(self,x_embedding,x_att):#to do the Embedding Label-Sensitivity, we need add noise to the word_embedding
+        output = self.model(inputs_embeds=x_embedding,attention_mask=x_att)
+        logits = output.logits
+        # logits = self.softmax(logits) #not sure whether we need this line to compute loss
+        return logits
+        
+    
     def loss(self,logits,labels):
         loss = self.criterion(logits, labels)
         return loss
@@ -90,7 +98,11 @@ class TextClassifier(nn.Module):
                 accuracy = accuracy_score(labels, predict)
                 all_loss.append(loss)
                 all_acc.append(accuracy)
-        sensitivity = word_label_sensitivity(replaced_dataloader, valid_dataloader, self, device, self.replace_size)
+        
+        if(self.sensitivity_method == 'word'):
+            sensitivity = word_label_sensitivity(replaced_dataloader, valid_dataloader, self, device, self.replace_size)
+        elif self.sensitivity_method =='embedding':
+            sensitivity = embedding_label_sensitivity(valid_dataloader, self, self.model.roberta.embeddings, device, self.replace_size)
         self.sensitivity_2dlist_report.append(sensitivity)
         self.validation_loss_report.append(sum(all_loss)    / len(all_loss) )
         self.validation_acc_report.append(sum(all_acc) / len(all_acc))

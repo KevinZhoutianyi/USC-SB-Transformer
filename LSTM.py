@@ -28,7 +28,7 @@ class LSTMTextClassifier(nn.Module):
         self.model = nn.LSTM(args.embedding_dim, args.hidden_dim, num_layers=args.num_layers, dropout=args.dropout, batch_first=True)
         self.fc = nn.Linear(args.hidden_dim, args.num_labels)
         self.dropout = nn.Dropout(args.dropout)
-        
+        self.sensitivity_method = args.sensitivity_method
         self.epochs = args.epochs
         self.num_layers = args.num_layers
         self.hidden_dim = args.hidden_dim
@@ -67,6 +67,22 @@ class LSTMTextClassifier(nn.Module):
         final_hidden_state = hn[-1,:, :]
         logits = self.fc(final_hidden_state)
         return logits
+    def forward_withembedding(self,embedded,text_mask):
+        logger =  logging.getLogger('training')
+        logger.debug(f"embedded.shape:{embedded.shape}")
+        logger.debug(f"text_mask.shape:{text_mask.shape}")
+        text_lengths = torch.sum(text_mask,dim=1)
+        text_lengths = text_lengths.cpu()
+        text_lengths[text_lengths <= 0] = 1
+        h_0 = torch.zeros((self.num_layers,embedded.shape[0], self.hidden_dim),device=self.device)#hidden state
+        c_0 = torch.zeros((self.num_layers,embedded.shape[0], self.hidden_dim),device=self.device) #internal state
+        logger.debug(f"h_0.shape:{h_0.shape}")
+        logger.debug(f"c_0.shape:{c_0.shape}")
+        packed = torch.nn.utils.rnn.pack_padded_sequence(embedded, text_lengths, batch_first=True, enforce_sorted=False)
+        output, (hn, cn) = self.model(packed, (h_0, c_0)) 
+        final_hidden_state = hn[-1,:, :]
+        logits = self.fc(final_hidden_state)
+        return logits
 
     def loss(self,logits,labels):
         loss = self.criterion(logits, labels)
@@ -88,7 +104,13 @@ class LSTMTextClassifier(nn.Module):
                 accuracy = accuracy_score(labels, predict)
                 all_loss.append(loss)
                 all_acc.append(accuracy)
-        sensitivity = word_label_sensitivity(replaced_dataloader, valid_dataloader, self, device, self.replace_size)
+        
+        
+        if(self.sensitivity_method == 'word'):
+            sensitivity = word_label_sensitivity(replaced_dataloader, valid_dataloader, self, device, self.replace_size)
+        elif self.sensitivity_method =='embedding':
+            sensitivity = embedding_label_sensitivity(valid_dataloader, self, self.embedding, device, self.replace_size)
+        
         self.sensitivity_2dlist_report.append(sensitivity)
         self.validation_loss_report.append(sum(all_loss)    / len(all_loss) )
         self.validation_acc_report.append(sum(all_acc) / len(all_acc))

@@ -138,27 +138,88 @@ def replaced_data(dataset, n):
     }
     return data_dict
 
+def embedding_label_sensitivity(validation_dataloader,model,embedding,device,n):
+    #1. we need to add noise to each token embedding 
+    #2. for each sentence, we first get the origin prediction, and repeat by seqlen*n
+    #TODO: is max_len to short? for this dataset
+    logger = logging.getLogger('sensitivity')
+    sensitivity = []
+    for batch in validation_dataloader:
+        input_ids =    batch[0]
+        input_att =    batch[1]
+        batchsize =    batch[0].shape[0]
+        seqlen =    torch.sum(input_att,dim=1).to('cpu')
+        maxlen =    input_ids.shape[1]
+        
+        logger.debug(f"input_ids.shape:{input_ids.shape}, input_att.shape:{input_att.shape}")
+        logger.debug(f"input_ids[0]:{input_ids[0]}, input_att[0]:{input_att[0]}")
+        logger.debug(f"batchsize:{batchsize}, seqlen:{seqlen}, maxlen:{maxlen}")
+        input_ids, input_att =  input_ids.to(device), input_att.to(device)
+        x_emb = embedding(input_ids) #batch size, seq len, embedding size
+        logger.debug(f"x_emb.shape:{x_emb.shape}")
+        origin__pred_list = []
+        noised_pred_list = []
+        with torch.no_grad():
+            for i in range(batchsize): #for each sentence
+                origin_output = model.forward_withembedding(x_emb[i].unsqueeze(dim=0),input_att[i].unsqueeze(dim=0))
+                logger.debug(f"origin_output.shape:{origin_output.shape}")
+                pred = torch.argmax(origin_output, dim=1)
+                logger.debug(f"pred.shape:{pred.shape}")
+                logger.debug(f"n*seqlen[i]:{n*seqlen[i]}")
+                logger.debug(f"pred.repeat(n*seqlen[i]):{pred.repeat(n*seqlen[i])}")
+                origin__pred_list.append(pred.repeat(n*seqlen[i]))
+                logger.debug(f"origin__pred_list:{origin__pred_list}") 
+
+
+                repeated_matrices = x_emb[i].repeat(n*seqlen[i],1,1)       #TODO: add noise 
+                # #the dim of the embedding is max_len, embedding size
+                # we first repeat the embedding n*seqlen[i] times
+                # we generate a guassian matrix and add to it
+                # do we add noise n times to each token emb?
+                logger.debug(f"repeated_matrices:{repeated_matrices}") 
+                mean = 0
+                variance = 15#https://arxiv.org/pdf/2211.12316v1.pdf set it to 15, is not it too large? as the embedding is range from -1 to 1 when initialization
+                std_dev = variance ** 0.5
+                for k in range(seqlen[i]):
+                    for j in range(n):  # n different noises for each token
+                        noise = torch.randn(x_emb[i].shape[-1]) * std_dev + mean
+                        repeated_matrices[k * n + j, k, :] += noise.to(device)
+                noised_embedding =repeated_matrices
+                logger.debug(f"noised_embedding:{noised_embedding}") 
+                logger.debug(f"noised_embedding.shape:{noised_embedding.shape}") 
+                noised_output = model.forward_withembedding(noised_embedding,input_att[i].repeat(n*seqlen[i],1))
+                logger.debug(f"noised_output.shape:{noised_output.shape}") 
+                noised_pred = torch.argmax(noised_output, dim=1)
+                logger.debug(f"noised_pred.shape:{noised_pred.shape}") 
+                noised_pred_list.append(noised_pred) 
+                logger.debug(f"noised_pred_list.shape:{noised_pred_list}") 
+        
+        origin__pred_list = torch.cat(origin__pred_list, dim=0)
+        noised_pred_list = torch.cat(noised_pred_list, dim=0)
+    
+        logger.debug(f"origin__pred_list:{origin__pred_list}") 
+        logger.debug(f"noised_pred_list:{noised_pred_list}") 
+
+        wrong = torch.sum(  (origin__pred_list != noised_pred_list) ).item()
+        logger.debug(f"wrong:{wrong}") 
+        sens = wrong / len(origin__pred_list)
+        logger.debug(f"sens:{sens}") 
+        sensitivity.append(sens)
+        logger.debug(f"sensitivity:{sensitivity}") 
+    logger.debug(f"sensitivity:{sensitivity}")
+
+    
+    return sensitivity
+
+
+
 def word_label_sensitivity(replaced_dataloader, original_dataloader, model, device, n):
     #datasets are now different sizes, replaced dataset is n*word*original_size
-    logger = logging.getLogger('compute_sensitivity')
+    logger = logging.getLogger('sensitivity')
     sensitivity = []
     label_change = 0
     label_change_per_word = 0
     for replaced_batch, original_batch in zip(replaced_dataloader, original_dataloader):
-        '''
-        remove padding for replaced_batch
-        def contains_only_zeros(tensor):
-            return not torch.any(tensor != 0)
-
-        
-        rep_input_ids = [[tensor for tensor in row if not contains_only_zeros(tensor)] for row in replaced_batch[0]]
-        rep_input_ids = torch.stack([torch.stack(row) for row in rep_input_ids])
-        
-        # Filter out tensors that contain only zeros in padded_attn
-        rep_att_masks = [[tensor for tensor in row if not contains_only_zeros(tensor)] for row in replaced_batch[1]]
-        rep_att_masks = torch.stack([torch.stack(row) for row in rep_att_masks])
-        '''
-        
         seq_len = replaced_batch[2] 
             
         logger.debug(f"replaced_batch.shape:{replaced_batch[0].shape}, replaced_batch.shape:{replaced_batch[1].shape}")
@@ -220,4 +281,3 @@ def get_model_size(model):#return model size in MB
 
 
     
-# if __name__ == "__main__":

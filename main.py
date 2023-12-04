@@ -37,6 +37,7 @@ if not os.path.exists(foldername):
 logfilename = os.path.join(foldername, 'logfile.log')
 
 logging.getLogger().setLevel(logging.INFO)
+# logging.getLogger().setLevel(logging.DEBUG)
 
 logging.basicConfig(filename=logfilename, filemode='w', format='%(asctime)s %(levelname)s - %(funcName)s: %(message)s')
 handle = "root"
@@ -48,7 +49,7 @@ parser = argparse.ArgumentParser("main")
 parser.add_argument('--train_num_points', type=int,             default = 1000,            help='train data number')
 parser.add_argument('--valid_num_points', type=int,             default = 500,               help='validation data number')
 parser.add_argument('--report_num_points',type=int,             default = 500,              help='report number')
-parser.add_argument('--model_name',       type=str,             default = 'roberta-scratch',   help='model name')
+parser.add_argument('--model_name',       type=str,             default = 'lstm',   help='model name')
 parser.add_argument('--max_length',       type=int,             default=32,                 help='max_length')
 parser.add_argument('--num_labels',       type=int,             default=3,                 help='num_labels')
 parser.add_argument('--batch_size',       type=int,             default=4,                help='Batch size')
@@ -64,6 +65,7 @@ parser.add_argument('--num_head',         type=int,             default=4,      
 parser.add_argument('--num_layers',       type=int,             default=8,                 help='number of layers for LSTM and roberta')
 parser.add_argument('--dropout',          type=int,             default=0.2,               help='dropout')
 parser.add_argument('--pad_idx',          type=int,             default=1,                 help='ignores token with this index')
+parser.add_argument('--sensitivity_method',type=str,            default='word',                 help='embedding/word')
 parser.add_argument('--exp_name',          type=str,            default='default',                 help='why you run this experiment?')
 
 
