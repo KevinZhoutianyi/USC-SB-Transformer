@@ -9,7 +9,6 @@ from test import *
 warnings.filterwarnings("ignore")
 from datasets import load_dataset,load_metric
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM, pipeline
-import torch_optimizer as optim
 from transformers.optimization import Adafactor, AdafactorSchedule
 import torch.backends.cudnn as cudnn
 from utils import *
@@ -63,31 +62,38 @@ parser.add_argument('--embedding_dim',    type=int,             default=300,    
 parser.add_argument('--hidden_dim',       type=int,             default=256,               help='hidden dimension')
 parser.add_argument('--num_head',         type=int,             default=4,               help='num of head in lstm')
 parser.add_argument('--num_layers',       type=int,             default=8,                 help='number of layers for LSTM and roberta')
-parser.add_argument('--dropout',          type=int,             default=0.2,               help='dropout')
+parser.add_argument('--dropout',          type=float,             default=0.2,               help='dropout')
 parser.add_argument('--pad_idx',          type=int,             default=1,                 help='ignores token with this index')
 parser.add_argument('--sensitivity_method',type=str,            default='word',                 help='embedding/word')
 parser.add_argument('--embedding_noise_variance',         type=float,            default=15,                 help='the variance of the noise for the embedding sensitivity testing')
 parser.add_argument('--exp_name',                          type=str,            default='default',                 help='why you run this experiment?')
-
+parser.add_argument('--dataset',                          type=str,            default='boolq',                 help='data name')
 
 args = parser.parse_args()#(args=['--batch_size', '8',  '--no_cuda'])#used in ipynb
 logger.info(f'args:{args}')
 
-dataset = load_dataset('glue', 'mnli')
 
+if(args.dataset == 'boolq'):
+    dataset = load_dataset('boolq')
+elif (args.dataset == 'mnli'):
+    dataset = load_dataset('glue', 'mnli')
+    
 logger.info('\n Property of dataset:')
 logger.info(f'train set size: {len(dataset["train"])}')
-logger.info(f'validation_mismatched set size: {len(dataset["validation_matched"])}')
-logger.info(f'test_matched set size: {len(dataset["test_matched"])}')
-logger.info(f'test_mismatched set size: {len(dataset["test_mismatched"])}')
+# logger.info(f'validation_mismatched set size: {len(dataset["validation_matched"])}')
+# logger.info(f'test_matched set size: {len(dataset["test_matched"])}')
+# logger.info(f'test_mismatched set size: {len(dataset["test_mismatched"])}')
 # %%
 # %%
-
-
 
 train = dataset['train'][:args.train_num_points]
-valid = dataset['validation_matched'][-args.valid_num_points:]
-replaced = replaced_data(valid, args.replace_size) 
+if(args.dataset == 'boolq'):
+    valid = dataset['validation'][-args.valid_num_points:]
+    replaced = replaced_data_boolq(valid, args.replace_size) 
+elif (args.dataset == 'mnli'):
+    valid = dataset['validation_matched'][-args.valid_num_points:]
+    replaced = replaced_data(valid, args.replace_size) 
+
 
 
 if args.model_name=='roberta-scratch':
@@ -101,15 +107,26 @@ args.vocab_size = tokenizer.vocab_size
 #The Multi-Genre Natural Language Inference Corpus is a crowdsourced collection of sentence pairs with textual entailment annotations. Given a premise sentence and a hypothesis sentence, the task is to predict whether the premise entails the hypothesis (entailment), contradicts the hypothesis (contradiction), or neither (neutral). The premise sentences are gathered from ten different sources, including transcribed speech, fiction, and government reports. The authors of the benchmark use the standard test set, for which they obtained private labels from the RTE authors, and evaluate on both the matched (in-domain) and mismatched (cross-domain) section. They also uses and recommend the SNLI corpus as 550k examples of auxiliary training data.
 
 # %%
-train_data = get_Dataset(train, tokenizer, args.model_name, max_length=args.max_length)
-train_dataloader = DataLoader(train_data, sampler= SequentialSampler(train_data), 
-                        batch_size=args.batch_size, pin_memory=args.num_workers>0, num_workers=args.num_workers)
-valid_data = get_Dataset(valid, tokenizer, args.model_name, max_length=args.max_length)
-valid_dataloader = DataLoader(valid_data, sampler=SequentialSampler(valid_data), 
-                        batch_size=args.batch_size, pin_memory=args.num_workers>0, num_workers=args.num_workers)
-replaced_data = get_Replaced_Dataset(replaced, tokenizer, args.model_name, max_length = args.max_length)
-replaced_dataloader = DataLoader(replaced_data, sampler=SequentialSampler(replaced_data), 
-                        batch_size=args.batch_size, pin_memory=args.num_workers>0, num_workers=args.num_workers)
+if(args.dataset == 'boolq'):
+    train_data = get_Dataset_boolq(train, tokenizer, args.model_name, max_length=args.max_length)
+    train_dataloader = DataLoader(train_data, sampler= SequentialSampler(train_data), 
+                            batch_size=args.batch_size, pin_memory=args.num_workers>0, num_workers=args.num_workers)
+    valid_data = get_Dataset_boolq(valid, tokenizer, args.model_name, max_length=args.max_length)
+    valid_dataloader = DataLoader(valid_data, sampler=SequentialSampler(valid_data), 
+                            batch_size=args.batch_size, pin_memory=args.num_workers>0, num_workers=args.num_workers)
+    replaced_data = get_Replaced_Dataset_boolq(replaced, tokenizer, args.model_name, max_length = args.max_length)
+    replaced_dataloader = DataLoader(replaced_data, sampler=SequentialSampler(replaced_data), 
+                            batch_size=args.batch_size, pin_memory=args.num_workers>0, num_workers=args.num_workers)
+elif (args.dataset == 'mnli'):
+    train_data = get_Dataset(train, tokenizer, args.model_name, max_length=args.max_length)
+    train_dataloader = DataLoader(train_data, sampler= SequentialSampler(train_data), 
+                            batch_size=args.batch_size, pin_memory=args.num_workers>0, num_workers=args.num_workers)
+    valid_data = get_Dataset(valid, tokenizer, args.model_name, max_length=args.max_length)
+    valid_dataloader = DataLoader(valid_data, sampler=SequentialSampler(valid_data), 
+                            batch_size=args.batch_size, pin_memory=args.num_workers>0, num_workers=args.num_workers)
+    replaced_data = get_Replaced_Dataset(replaced, tokenizer, args.model_name, max_length = args.max_length)
+    replaced_dataloader = DataLoader(replaced_data, sampler=SequentialSampler(replaced_data), 
+                            batch_size=args.batch_size, pin_memory=args.num_workers>0, num_workers=args.num_workers)
 
 # %%
 if args.model_name=='roberta-scratch':
@@ -120,6 +137,13 @@ model.train(train_dataloader,valid_dataloader,replaced_dataloader,device)
 
 sizeinmb = get_model_size(model)
 logger.info(f'model size: {sizeinmb}MB')
+
+
+
+# %%
+
+
+
 
 
 

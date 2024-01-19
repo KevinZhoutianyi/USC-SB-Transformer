@@ -22,7 +22,7 @@ def accuracy_score(all_labels, all_preds):
 
 
 
-def tokenize(premise, hypothesis,tokenizer, model, max_length, padding = True):
+def tokenize(a, b,tokenizer, model, max_length, padding = True):
     # tokenizer.build_inputs_with_special_tokens(premise,hyp)
     # logger.info('premise',tokenizer(text=premise, return_tensors='pt', add_special_tokens=True, padding=padding, truncation = True, max_length = max_length)[0])
     # logger.info('hyper',tokenizer(text=hypothesis, return_tensors='pt', add_special_tokens=True, padding=padding, truncation = True, max_length = max_length)[0])
@@ -49,7 +49,7 @@ def tokenize(premise, hypothesis,tokenizer, model, max_length, padding = True):
         input_ids = enc2d
         attention_mask = torch.zeros_like(enc2d)
     else:
-        encoding = tokenizer(text=premise,text_pair = hypothesis, return_tensors='pt', add_special_tokens=True, padding=padding, truncation = True, max_length = max_length)
+        encoding = tokenizer(text=a,text_pair = b, return_tensors='pt', add_special_tokens=True, padding=padding, truncation = True, max_length = max_length)
     # encoding = tokenizer(premise, hypothesis, ...)
         input_ids = encoding['input_ids']
         attention_mask = encoding['attention_mask']
@@ -65,6 +65,14 @@ def get_Dataset(dataset, tokenizer, model, max_length):
     token_ids, token_attn = tokenize(premise,hypothesis, tokenizer, model, max_length = max_length)
     train_data = TensorDataset(token_ids, token_attn, label)
     return train_data 
+def get_Dataset_boolq(dataset, tokenizer, model, max_length):
+    
+    premise , hypothesis = dataset['question'],dataset['passage']
+    label  = torch.Tensor(dataset['answer'])
+    label = label.type(torch.LongTensor)  
+    token_ids, token_attn = tokenize(premise,hypothesis, tokenizer, model, max_length = max_length)
+    train_data = TensorDataset(token_ids, token_attn, label)
+    return train_data
 
 def get_Replaced_Dataset(dataset, tokenizer,model, max_length):
     logger =  logging.getLogger('replaced_dataloader')
@@ -93,7 +101,33 @@ def get_Replaced_Dataset(dataset, tokenizer,model, max_length):
     logger.debug(f"tensor_id.shape:{tensor_id.shape},tensor_attn.shape:{tensor_attn.shape}.seq_len:{seq_len.shape}")# get_Replaced_Dataset: tensor_id.shape:torch.Size([32, 66, 64]),tensor_attn.shape:torch.Size([32, 66, 64]).seq_len:torch.Size([32])
     replaced_data = TensorDataset(tensor_id, tensor_attn, seq_len)
     return replaced_data
+def get_Replaced_Dataset_boolq(dataset, tokenizer,model, max_length):
+    logger =  logging.getLogger('replaced_dataloader')
+    token_id_arr = []
+    token_attn_arr = []
+    seq_len  = torch.Tensor(dataset['sequence_length'])
+    seq_len = seq_len.type(torch.LongTensor) 
+    for i in range(len(dataset['question'])): 
+        token_ids, token_attn = tokenize(dataset["question"][i],dataset["passage"][i], tokenizer, model, max_length = max_length, padding = "max_length")
+        token_id_arr.append(token_ids)
+        token_attn_arr.append(token_attn)
+    #pad each tensor in tensor_id, tensor_attn to the max seq_len*n tensor
+    logger.debug(f"token_id_arr length:{len(token_id_arr)}")
+    logger.debug(f"token_id_arr[0] length:{len(token_id_arr[0])}")
+    logger.debug(f"token_id_arr[0][0] length:{len(token_id_arr[0][0])}")
+    logger.debug(f"token_attn_arr length:{len(token_attn_arr)}")
+    logger.debug(f"seq_len[0]:{seq_len[0]}")
 
+    max_id = max(tensor.shape[0] for tensor in token_id_arr) #find the max replacesize*seq_length
+    logger.info(f"max_id:{max_id},max_length:{max_length}")
+    padded_id = [torch.cat((tensor, torch.zeros(max_id - tensor.shape[0], tensor.shape[1], dtype=torch.int32))) for tensor in token_id_arr]
+    padded_attn = [torch.cat((tensor, torch.zeros(max_id - tensor.shape[0], tensor.shape[1], dtype=torch.int32))) for tensor in token_attn_arr]
+    
+    tensor_id = torch.stack(padded_id, dim = 0)
+    tensor_attn = torch.stack(padded_attn, dim = 0)
+    logger.debug(f"tensor_id.shape:{tensor_id.shape},tensor_attn.shape:{tensor_attn.shape}.seq_len:{seq_len.shape}")# get_Replaced_Dataset: tensor_id.shape:torch.Size([32, 66, 64]),tensor_attn.shape:torch.Size([32, 66, 64]).seq_len:torch.Size([32])
+    replaced_data = TensorDataset(tensor_id, tensor_attn, seq_len)
+    return replaced_data
 def get_vocab(dataset):
     vocab = []
     for premise in dataset["premise"]:
@@ -102,6 +136,18 @@ def get_vocab(dataset):
                 vocab.append(word)
     for hypothesis in dataset["hypothesis"]:
         for word in hypothesis.replace(".", " ").split():
+            if word not in vocab:
+                vocab.append(word)
+    return vocab
+
+def get_vocab_boolq(dataset):
+    vocab = []
+    for question in dataset["question"]:
+        for word in question.replace(".", " ").replace("\\", " ").split():
+            if word not in vocab:
+                vocab.append(word)
+    for passage in dataset["passage"]:
+        for word in passage.replace(".", " ").replace("\\", " ").split():
             if word not in vocab:
                 vocab.append(word)
     return vocab
@@ -134,6 +180,37 @@ def replaced_data(dataset, n):
     data_dict = {
         "premise": replaced_premise,
         "hypothesis": replaced_hypothesis,
+        "sequence_length": sequence_length
+    }
+    return data_dict
+def replaced_data_boolq(dataset, n):
+    vocab = get_vocab_boolq(dataset)
+    question = dataset["question"]
+    passage = dataset["passage"]
+    index = 0
+    replaced_question = []
+    replaced_passage = []
+    sequence_length = []
+    for question in dataset["question"]: #TODO: do we need to replace the word in passage?
+        len = 0
+        temp_question = question[:]
+        replaced_per_sentence = []
+        replaced_question_per_sentence = []
+        replaced_passage_per_sentence = []
+        for word in question.replace(".", " ").split():
+            len += 1
+            for i in range(n):
+                replacement = random.choice(vocab)
+                question_replaced = re.sub(r'\b' + re.escape(word) + r'\b', replacement, temp_question)
+                replaced_per_sentence.append(question_replaced)
+                replaced_passage_per_sentence.append(passage[index])
+        index += 1
+        sequence_length.append(len)
+        replaced_passage.append(replaced_passage_per_sentence)
+        replaced_question.append(replaced_per_sentence)
+    data_dict = {
+        "passage": replaced_passage,
+        "question": replaced_question,
         "sequence_length": sequence_length
     }
     return data_dict
