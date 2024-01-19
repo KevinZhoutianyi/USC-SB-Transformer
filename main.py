@@ -140,6 +140,8 @@ elif (args.dataset == 'mnli'):
 # %%
 if args.model_name=='roberta-scratch':
     model = TextClassifier(args,foldername).to(device)
+elif args.model_name=='roberta-base':
+    model = TextClassifier(args,foldername).to(device)
 elif args.model_name=='lstm':
     model = LSTMTextClassifier(args,foldername).to(device)
 model.train(train_dataloader,valid_dataloader,replaced_dataloader,device)

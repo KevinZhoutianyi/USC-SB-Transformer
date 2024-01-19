@@ -46,6 +46,7 @@ class TextClassifier(nn.Module):
         else:
             self.tokenizer = AutoTokenizer.from_pretrained(args.model_name)
             self.model =AutoModelForSequenceClassification.from_pretrained(args.model_name, num_labels=args.num_labels) 
+            configuration = self.model.config
 
 
         self.embedding_noise_variance = args.embedding_noise_variance
@@ -57,18 +58,7 @@ class TextClassifier(nn.Module):
         # self.fc = nn.Linear(self.model.config.hidden_size, 3)  # FC layer
         self.criterion = torch.nn.CrossEntropyLoss()#ignore_index=0
         self.softmax = torch.nn.Softmax(dim=1)
-        no_decay = ["bias", "LayerNorm.weight"]
-        optimizer_grouped_parameters = [
-            {
-                "params": [p for n, p in self.model.named_parameters() if not any(nd in n for nd in no_decay)],
-                "weight_decay": args.weight_decay,
-            },
-            {
-                "params": [p for n, p in self.model.named_parameters() if any(nd in n for nd in no_decay)],
-                "weight_decay": 0.0,
-            },
-        ]
-        self.optimizer = torch.optim.AdamW(optimizer_grouped_parameters, lr=args.lr)
+        self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=args.lr)
         #self.optimizer = torch.optim.Adam(self.model.parameters(),  lr= args.lr ,  betas=(0, 0.9)  )
         self.scheduler =torch.optim.lr_scheduler.StepLR(self.optimizer, 1, gamma=args.gamma)
         self.epochs = args.epochs
@@ -180,7 +170,7 @@ class TextClassifier(nn.Module):
                     np.save(get_savefilename(self.log_foldername,'validationloss'), temp3)
                     np.save(get_savefilename(self.log_foldername,'validationacc'), temp4)
 
-
+            self.scheduler.step()
             logger.info(f"Epoch {epoch+1}/{self.epochs}, Train Loss: {epoch_train_loss/(step+1):.4f}")
 
             
