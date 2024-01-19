@@ -42,7 +42,7 @@ class TextClassifier(nn.Module):
             configuration.hidden_size = args.hidden_dim
             configuration.attention_probs_dropout_prob = args.dropout
             configuration.hidden_dropout_prob = args.dropout
-            if args.activation == 'relu':
+            if args.roberta_act == 'relu':
                 self.model = RobertaForSequenceClassificationRelu(configuration)
             else:
                 self.model = RobertaForSequenceClassification(configuration)
