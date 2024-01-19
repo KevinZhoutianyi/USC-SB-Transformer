@@ -76,7 +76,7 @@ logger.info(f'args:{args}')
 if(args.dataset == 'boolq'):
     dataset = load_dataset('boolq')
 elif (args.dataset in ['mnli', 'qqp', 'rte']):
-    dataset = load_dataset('glue', 'mnli')
+    dataset = load_dataset('glue', args.dataset )
     
 logger.info('\n Property of dataset:')
 logger.info(f'train set size: {len(dataset["train"])}')
