@@ -9,6 +9,20 @@ import logging
 from torch.utils.data import SequentialSampler
 import string
 from collections import Counter
+import pdb 
+
+task_to_keys = {
+    "cola": ("sentence", None),
+    "mnli": ("premise", "hypothesis"),
+    "mrpc": ("sentence1", "sentence2"),
+    "qnli": ("question", "sentence"),
+    "qqp": ("question1", "question2"),
+    "rte": ("sentence1", "sentence2"),
+    "sst2": ("sentence", None),
+    "stsb": ("sentence1", "sentence2"),
+    "wnli": ("sentence1", "sentence2"),
+    "boolq": ("question", "passage"),
+}
 
 def accuracy_score(all_labels, all_preds):
     correct_count = 0
@@ -67,8 +81,7 @@ def get_Dataset(dataset, tokenizer, model, max_length):
     return train_data 
 
 def get_Dataset_binary(dataset, tokenizer, model, max_length):
-    non_label_column_names = [name for name in dataset.keys() if name != "label"]
-    sentence1_key, sentence2_key = non_label_column_names[:2]
+    sentence1_key, sentence2_key = task_to_keys[dataset['dataset']]
     premise , hypothesis = dataset[sentence1_key],dataset[sentence2_key]
     label  = torch.Tensor(dataset['answer'])
     label = label.type(torch.LongTensor)  
@@ -104,8 +117,7 @@ def get_Replaced_Dataset(dataset, tokenizer,model, max_length):
     replaced_data = TensorDataset(tensor_id, tensor_attn, seq_len)
     return replaced_data
 def get_Replaced_Dataset_binary(dataset, tokenizer,model, max_length):
-    non_label_column_names = [name for name in dataset.keys() if name != "label"]
-    sentence1_key, sentence2_key = non_label_column_names[:2]
+    sentence1_key, sentence2_key = task_to_keys[dataset['dataset']]
     logger =  logging.getLogger('replaced_dataloader')
     token_id_arr = []
     token_attn_arr = []
@@ -145,8 +157,7 @@ def get_vocab(dataset):
     return vocab
 
 def get_vocab_binary(dataset):
-    non_label_column_names = [name for name in dataset.keys() if name != "label"]
-    sentence1_key, sentence2_key = non_label_column_names[:2]
+    sentence1_key, sentence2_key = task_to_keys[dataset['dataset']]
     vocab = []
     for question in dataset[sentence1_key]:
         for word in question.replace(".", " ").replace("\\", " ").split():
@@ -190,8 +201,7 @@ def replaced_data(dataset, n):
     }
     return data_dict
 def replaced_data_binary(dataset, n):
-    non_label_column_names = [name for name in dataset.keys() if name != "label"]
-    sentence1_key, sentence2_key = non_label_column_names[:2]
+    sentence1_key, sentence2_key = task_to_keys[dataset['dataset']]
     vocab = get_vocab_binary(dataset)
     question = dataset[sentence1_key]
     passage = dataset[sentence2_key]

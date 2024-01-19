@@ -56,6 +56,7 @@ parser.add_argument('--num_workers',      type=int,             default=0,      
 parser.add_argument('--replace_size',     type=int,             default=3,                  help='to test sensitivity, we need to replance each word by x random words from vocab, here we specify the x')
 parser.add_argument('--epochs',           type=int,             default=500,                  help='num of epochs')
 parser.add_argument('--lr',               type=float,           default=1e-4,              help='lr')
+parser.add_argument('--weight_decay',     type=float,           default=0.0,                 help='weight_decay')
 parser.add_argument('--gamma',            type=float,           default=1,                 help='lr*gamma after each test')
 parser.add_argument('--vocab_size',       type=int,             default=-1,                help='size of vocabulary')
 parser.add_argument('--embedding_dim',    type=int,             default=300,               help='embedding dimension')
@@ -87,12 +88,17 @@ logger.info(f'train set size: {len(dataset["train"])}')
 # %%
 
 train = dataset['train'][:args.train_num_points]
+train['dataset'] = args.dataset
 if(args.dataset in ['boolq', 'qqp', 'rte']):
     valid = dataset['validation'][-args.valid_num_points:]
+    valid['dataset'] = args.dataset
     replaced = replaced_data_binary(valid, args.replace_size) 
+    replaced['dataset'] = args.dataset
 elif (args.dataset == 'mnli'):
     valid = dataset['validation_matched'][-args.valid_num_points:]
+    valid['dataset'] = args.dataset
     replaced = replaced_data(valid, args.replace_size) 
+    replaced['dataset'] = args.dataset
 
 
 
