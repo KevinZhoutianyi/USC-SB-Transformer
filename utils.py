@@ -83,7 +83,10 @@ def get_Dataset(dataset, tokenizer, model, max_length):
 def get_Dataset_binary(dataset, tokenizer, model, max_length):
     sentence1_key, sentence2_key = task_to_keys[dataset['dataset']]
     premise , hypothesis = dataset[sentence1_key],dataset[sentence2_key]
-    label  = torch.Tensor(dataset['answer'])
+    if dataset['dataset'] == 'boolq':
+        label  = torch.Tensor(dataset['answer'])
+    else:
+        label  = torch.Tensor(dataset['label'])
     label = label.type(torch.LongTensor)  
     token_ids, token_attn = tokenize(premise,hypothesis, tokenizer, model, max_length = max_length)
     train_data = TensorDataset(token_ids, token_attn, label)
