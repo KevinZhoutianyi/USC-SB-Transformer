@@ -11,6 +11,7 @@ python main.py --model_name 'lstm'\
     --gamma 0.9 \
     --hidden_dim 768 \
     --lr 1e-04 \
+    --weight_decay 0.01 \
     --max_length 32 \
     --num_head 12 \
     --num_labels 2 \

@@ -9,10 +9,10 @@ python main.py --model_name 'lstm'\
     --embedding_dim 300 \
     --epochs 100 \
     --gamma 0.9 \
-    --hidden_dim 768 \
+    --hidden_dim 256 \
     --lr 1e-04 \
     --max_length 32 \
-    --num_head 12 \
+    --num_head 8 \
     --num_labels 2 \
     --num_layers 4 \
     --replace_size 3 \

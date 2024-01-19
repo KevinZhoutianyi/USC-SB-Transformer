@@ -58,7 +58,8 @@ parser.add_argument('--dataset',                          type=str,            d
 
 args = parser.parse_args()#(args=['--batch_size', '8',  '--no_cuda'])#used in ipynb
 
-foldername = datetime.now().strftime(f'./logs/{args.dataset}/{args.model_name}/%Y_%m_%d_%H_%M_%S')
+#foldername = datetime.now().strftime(f'./logs/{args.dataset}/{args.model_name}/%Y_%m_%d_%H_%M_%S')
+foldername = f'./logs/{args.dataset}/{args.model_name}/{args.exp_name}'
 # Create the folder if it doesn't exist
 if not os.path.exists(foldername):
     os.makedirs(foldername)
@@ -76,7 +77,7 @@ logger.info(f'args:{args}')
 
 if(args.dataset == 'boolq'):
     dataset = load_dataset('boolq')
-elif (args.dataset in ['mnli', 'qqp', 'rte', 'qnli']):
+elif (args.dataset in ['mnli', 'qqp', 'rte', 'qnli', 'mrpc']):
     dataset = load_dataset('glue', args.dataset )
     
 logger.info('\n Property of dataset:')
@@ -90,7 +91,7 @@ logger.info(f'train set size: {len(dataset["train"])}')
 train_num_points = min(args.train_num_points, len(dataset['train']))
 train = dataset['train'][:train_num_points]
 train['dataset'] = args.dataset
-if(args.dataset in ['boolq', 'qqp', 'rte', 'qnli']):
+if(args.dataset in ['boolq', 'qqp', 'rte', 'qnli', 'mrpc']):
     valid_num_points = min(args.valid_num_points, len(dataset['validation']))
     valid = dataset['validation'][-valid_num_points:]
     valid['dataset'] = args.dataset
@@ -116,7 +117,7 @@ args.vocab_size = tokenizer.vocab_size
 #The Multi-Genre Natural Language Inference Corpus is a crowdsourced collection of sentence pairs with textual entailment annotations. Given a premise sentence and a hypothesis sentence, the task is to predict whether the premise entails the hypothesis (entailment), contradicts the hypothesis (contradiction), or neither (neutral). The premise sentences are gathered from ten different sources, including transcribed speech, fiction, and government reports. The authors of the benchmark use the standard test set, for which they obtained private labels from the RTE authors, and evaluate on both the matched (in-domain) and mismatched (cross-domain) section. They also uses and recommend the SNLI corpus as 550k examples of auxiliary training data.
 
 # %%
-if(args.dataset in ['boolq', 'rte', 'qqp', 'qnli']):
+if(args.dataset in ['boolq', 'rte', 'qqp', 'qnli', 'mrpc']):
     train_data = get_Dataset_binary(train, tokenizer, args.model_name, max_length=args.max_length)
     train_dataloader = DataLoader(train_data, sampler= SequentialSampler(train_data), 
                             batch_size=args.batch_size, pin_memory=args.num_workers>0, num_workers=args.num_workers)
