@@ -75,7 +75,7 @@ logger.info(f'args:{args}')
 
 if(args.dataset == 'boolq'):
     dataset = load_dataset('boolq')
-elif (args.dataset == 'mnli'):
+elif (args.dataset in ['mnli', 'qqp', 'rte']):
     dataset = load_dataset('glue', 'mnli')
     
 logger.info('\n Property of dataset:')
@@ -87,9 +87,9 @@ logger.info(f'train set size: {len(dataset["train"])}')
 # %%
 
 train = dataset['train'][:args.train_num_points]
-if(args.dataset == 'boolq'):
+if(args.dataset in ['boolq', 'qqp', 'rte']):
     valid = dataset['validation'][-args.valid_num_points:]
-    replaced = replaced_data_boolq(valid, args.replace_size) 
+    replaced = replaced_data_binary(valid, args.replace_size) 
 elif (args.dataset == 'mnli'):
     valid = dataset['validation_matched'][-args.valid_num_points:]
     replaced = replaced_data(valid, args.replace_size) 
@@ -107,14 +107,14 @@ args.vocab_size = tokenizer.vocab_size
 #The Multi-Genre Natural Language Inference Corpus is a crowdsourced collection of sentence pairs with textual entailment annotations. Given a premise sentence and a hypothesis sentence, the task is to predict whether the premise entails the hypothesis (entailment), contradicts the hypothesis (contradiction), or neither (neutral). The premise sentences are gathered from ten different sources, including transcribed speech, fiction, and government reports. The authors of the benchmark use the standard test set, for which they obtained private labels from the RTE authors, and evaluate on both the matched (in-domain) and mismatched (cross-domain) section. They also uses and recommend the SNLI corpus as 550k examples of auxiliary training data.
 
 # %%
-if(args.dataset == 'boolq'):
-    train_data = get_Dataset_boolq(train, tokenizer, args.model_name, max_length=args.max_length)
+if(args.dataset in ['boolq', 'rte', 'qqp']):
+    train_data = get_Dataset_binary(train, tokenizer, args.model_name, max_length=args.max_length)
     train_dataloader = DataLoader(train_data, sampler= SequentialSampler(train_data), 
                             batch_size=args.batch_size, pin_memory=args.num_workers>0, num_workers=args.num_workers)
-    valid_data = get_Dataset_boolq(valid, tokenizer, args.model_name, max_length=args.max_length)
+    valid_data = get_Dataset_binary(valid, tokenizer, args.model_name, max_length=args.max_length)
     valid_dataloader = DataLoader(valid_data, sampler=SequentialSampler(valid_data), 
                             batch_size=args.batch_size, pin_memory=args.num_workers>0, num_workers=args.num_workers)
-    replaced_data = get_Replaced_Dataset_boolq(replaced, tokenizer, args.model_name, max_length = args.max_length)
+    replaced_data = get_Replaced_Dataset_binary(replaced, tokenizer, args.model_name, max_length = args.max_length)
     replaced_dataloader = DataLoader(replaced_data, sampler=SequentialSampler(replaced_data), 
                             batch_size=args.batch_size, pin_memory=args.num_workers>0, num_workers=args.num_workers)
 elif (args.dataset == 'mnli'):

@@ -65,9 +65,11 @@ def get_Dataset(dataset, tokenizer, model, max_length):
     token_ids, token_attn = tokenize(premise,hypothesis, tokenizer, model, max_length = max_length)
     train_data = TensorDataset(token_ids, token_attn, label)
     return train_data 
-def get_Dataset_boolq(dataset, tokenizer, model, max_length):
-    
-    premise , hypothesis = dataset['question'],dataset['passage']
+
+def get_Dataset_binary(dataset, tokenizer, model, max_length):
+    non_label_column_names = [name for name in dataset.keys() if name != "label"]
+    sentence1_key, sentence2_key = non_label_column_names[:2]
+    premise , hypothesis = dataset[sentence1_key],dataset[sentence2_key]
     label  = torch.Tensor(dataset['answer'])
     label = label.type(torch.LongTensor)  
     token_ids, token_attn = tokenize(premise,hypothesis, tokenizer, model, max_length = max_length)
@@ -101,14 +103,16 @@ def get_Replaced_Dataset(dataset, tokenizer,model, max_length):
     logger.debug(f"tensor_id.shape:{tensor_id.shape},tensor_attn.shape:{tensor_attn.shape}.seq_len:{seq_len.shape}")# get_Replaced_Dataset: tensor_id.shape:torch.Size([32, 66, 64]),tensor_attn.shape:torch.Size([32, 66, 64]).seq_len:torch.Size([32])
     replaced_data = TensorDataset(tensor_id, tensor_attn, seq_len)
     return replaced_data
-def get_Replaced_Dataset_boolq(dataset, tokenizer,model, max_length):
+def get_Replaced_Dataset_binary(dataset, tokenizer,model, max_length):
+    non_label_column_names = [name for name in dataset.keys() if name != "label"]
+    sentence1_key, sentence2_key = non_label_column_names[:2]
     logger =  logging.getLogger('replaced_dataloader')
     token_id_arr = []
     token_attn_arr = []
     seq_len  = torch.Tensor(dataset['sequence_length'])
     seq_len = seq_len.type(torch.LongTensor) 
-    for i in range(len(dataset['question'])): 
-        token_ids, token_attn = tokenize(dataset["question"][i],dataset["passage"][i], tokenizer, model, max_length = max_length, padding = "max_length")
+    for i in range(len(dataset[sentence1_key])): 
+        token_ids, token_attn = tokenize(dataset[sentence1_key][i],dataset[sentence2_key][i], tokenizer, model, max_length = max_length, padding = "max_length")
         token_id_arr.append(token_ids)
         token_attn_arr.append(token_attn)
     #pad each tensor in tensor_id, tensor_attn to the max seq_len*n tensor
@@ -140,13 +144,15 @@ def get_vocab(dataset):
                 vocab.append(word)
     return vocab
 
-def get_vocab_boolq(dataset):
+def get_vocab_binary(dataset):
+    non_label_column_names = [name for name in dataset.keys() if name != "label"]
+    sentence1_key, sentence2_key = non_label_column_names[:2]
     vocab = []
-    for question in dataset["question"]:
+    for question in dataset[sentence1_key]:
         for word in question.replace(".", " ").replace("\\", " ").split():
             if word not in vocab:
                 vocab.append(word)
-    for passage in dataset["passage"]:
+    for passage in dataset[sentence2_key]:
         for word in passage.replace(".", " ").replace("\\", " ").split():
             if word not in vocab:
                 vocab.append(word)
@@ -183,15 +189,17 @@ def replaced_data(dataset, n):
         "sequence_length": sequence_length
     }
     return data_dict
-def replaced_data_boolq(dataset, n):
-    vocab = get_vocab_boolq(dataset)
-    question = dataset["question"]
-    passage = dataset["passage"]
+def replaced_data_binary(dataset, n):
+    non_label_column_names = [name for name in dataset.keys() if name != "label"]
+    sentence1_key, sentence2_key = non_label_column_names[:2]
+    vocab = get_vocab_binary(dataset)
+    question = dataset[sentence1_key]
+    passage = dataset[sentence2_key]
     index = 0
     replaced_question = []
     replaced_passage = []
     sequence_length = []
-    for question in dataset["question"]: #TODO: do we need to replace the word in passage?
+    for question in dataset[sentence1_key]: #TODO: do we need to replace the word in passage?
         len = 0
         temp_question = question[:]
         replaced_per_sentence = []
@@ -209,8 +217,8 @@ def replaced_data_boolq(dataset, n):
         replaced_passage.append(replaced_passage_per_sentence)
         replaced_question.append(replaced_per_sentence)
     data_dict = {
-        "passage": replaced_passage,
-        "question": replaced_question,
+        sentence2_key: replaced_passage,
+        sentence1_key: replaced_question,
         "sequence_length": sequence_length
     }
     return data_dict
