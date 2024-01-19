@@ -16,6 +16,7 @@ from transformers import AutoTokenizer
 import logging    # first of all import the module
 from datetime import datetime
 from transformers import RobertaConfig, RobertaForSequenceClassification
+from modeling_roberta_relu import RobertaForSequenceClassification as RobertaForSequenceClassificationRelu
 
 # %%
 def seed_torch(seed=0):
@@ -41,7 +42,10 @@ class TextClassifier(nn.Module):
             configuration.hidden_size = args.hidden_dim
             configuration.attention_probs_dropout_prob = args.dropout
             configuration.hidden_dropout_prob = args.dropout
-            self.model = RobertaForSequenceClassification(configuration)
+            if args.activation == 'relu':
+                self.model = RobertaForSequenceClassificationRelu(configuration)
+            else:
+                self.model = RobertaForSequenceClassification(configuration)
             self.tokenizer = AutoTokenizer.from_pretrained('roberta-base')
         else:
             self.tokenizer = AutoTokenizer.from_pretrained(args.model_name)

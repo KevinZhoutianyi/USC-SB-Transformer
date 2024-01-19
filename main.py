@@ -55,11 +55,14 @@ parser.add_argument('--sensitivity_method',type=str,            default='word', 
 parser.add_argument('--embedding_noise_variance',         type=float,            default=15,                 help='the variance of the noise for the embedding sensitivity testing')
 parser.add_argument('--exp_name',                          type=str,            default='default',                 help='why you run this experiment?')
 parser.add_argument('--dataset',                          type=str,            default='boolq',                 help='data name')
-
+parser.add_argument('--roberta_act',        type=str, default='softmax' , help='softmax/relu')
 args = parser.parse_args()#(args=['--batch_size', '8',  '--no_cuda'])#used in ipynb
 
 #foldername = datetime.now().strftime(f'./logs/{args.dataset}/{args.model_name}/%Y_%m_%d_%H_%M_%S')
-foldername = f'./logs/{args.dataset}/{args.model_name}/{args.exp_name}'
+if 'roberta' in args.model_name and args.roberta_act == 'relu':
+    foldername = f'./logs/{args.dataset}/{args.model_name}_{args.roberta_act}/{args.exp_name}'
+else:
+    foldername = f'./logs/{args.dataset}/{args.model_name}/{args.exp_name}'
 # Create the folder if it doesn't exist
 if not os.path.exists(foldername):
     os.makedirs(foldername)
