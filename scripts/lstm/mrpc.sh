@@ -20,5 +20,5 @@ python main.py --model_name 'lstm'\
     --report_num_points 50000 \
     --train_num_points 392700 \
     --valid_num_points 9795 \
-    --dataset 'qqp' \
+    --dataset 'mrpc' \
     --sensitivity_method 'embedding' \
