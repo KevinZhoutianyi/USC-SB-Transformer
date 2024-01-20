@@ -3,7 +3,7 @@
 source ~/.bashrc
 conda activate sbias
 
-python main.py --model_name 'lstm'\
+python main.py --model_name 'roberta-scratch'\
     --batch_size 32 \
     --dropout 0.1 \
     --embedding_dim 300 \
@@ -22,3 +22,4 @@ python main.py --model_name 'lstm'\
     --valid_num_points 9795 \
     --dataset 'mrpc' \
     --sensitivity_method 'embedding' \
+    --roberta_act 'relu' \
