@@ -56,6 +56,7 @@ parser.add_argument('--embedding_noise_variance',         type=float,           
 parser.add_argument('--exp_name',                          type=str,            default='default',                 help='why you run this experiment?')
 parser.add_argument('--dataset',                          type=str,            default='boolq',                 help='data name')
 parser.add_argument('--roberta_act',        type=str, default='softmax' , help='softmax/relu')
+parser.add_argument('--optimizer',        type=str, default='AdamW' , help='AdamW or SGD')
 args = parser.parse_args()#(args=['--batch_size', '8',  '--no_cuda'])#used in ipynb
 
 #foldername = datetime.now().strftime(f'./logs/{args.dataset}/{args.model_name}/%Y_%m_%d_%H_%M_%S')

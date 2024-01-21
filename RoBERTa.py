@@ -62,7 +62,12 @@ class TextClassifier(nn.Module):
         # self.fc = nn.Linear(self.model.config.hidden_size, 3)  # FC layer
         self.criterion = torch.nn.CrossEntropyLoss()#ignore_index=0
         self.softmax = torch.nn.Softmax(dim=1)
-        self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=args.lr)
+        if args.optimizer == 'AdamW':
+            self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+        elif args.optimizer == 'SGD':
+            self.optimizer = torch.optim.SGD(self.model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+        else:
+            raise NotImplementedError('optimizer not implemented')
         #self.optimizer = torch.optim.Adam(self.model.parameters(),  lr= args.lr ,  betas=(0, 0.9)  )
         self.scheduler =torch.optim.lr_scheduler.StepLR(self.optimizer, 1, gamma=args.gamma)
         self.epochs = args.epochs

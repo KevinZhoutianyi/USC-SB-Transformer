@@ -37,7 +37,12 @@ class LSTMTextClassifier(nn.Module):
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         self.criterion = torch.nn.CrossEntropyLoss()
         self.softmax = torch.nn.Softmax(dim=1)
-        self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=args.lr)
+        if args.optimizer == 'AdamW':
+            self.optimizer = torch.optim.AdamW(self.model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+        elif args.optimizer == 'SGD':
+            self.optimizer = torch.optim.SGD(self.model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+        else:
+            raise NotImplementedError('optimizer not implemented')
         #self.optimizer = torch.optim.Adam(self.model.parameters(),  lr= args.lr ,  betas=(0, 0.9)  )
         self.scheduler =torch.optim.lr_scheduler.StepLR(self.optimizer, 1, gamma=args.gamma)
         self.report_number = args.report_num_points
