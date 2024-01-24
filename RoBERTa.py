@@ -95,7 +95,7 @@ class TextClassifier(nn.Module):
     def loss(self,logits,labels):
         loss = self.criterion(logits, labels)
         return loss
-    def validation(self,valid_dataloader, replaced_dataloader, epoch,device,save=False):
+    def validation(self,valid_dataloader, replaced_dataloader,embedding_sens_eval_dataloader, epoch,device,save=False):
         logger =  logging.getLogger('training')
         self.model.eval()
         all_acc = []
@@ -114,8 +114,8 @@ class TextClassifier(nn.Module):
         
         if(self.sensitivity_method == 'word'):
             sensitivity = word_label_sensitivity(replaced_dataloader, valid_dataloader, self, device, self.replace_size)
-        elif self.sensitivity_method =='embedding':
-            sensitivity = embedding_label_sensitivity(valid_dataloader, self, self.model.roberta.embeddings, device, self.replace_size, self.embedding_noise_variance)
+        elif self.sensitivity_method =='embedding':# we use a subset of training data to test the sensitivity
+            sensitivity = embedding_label_sensitivity(embedding_sens_eval_dataloader, self, self.model.roberta.embeddings, device, self.replace_size, self.embedding_noise_variance)
         self.sensitivity_2dlist_report.append(sensitivity)
         self.validation_loss_report.append(sum(all_loss)    / len(all_loss) )
         self.validation_acc_report.append(sum(all_acc) / len(all_acc))
@@ -130,10 +130,10 @@ class TextClassifier(nn.Module):
                 'optimizer_state_dict': self.optimizer.state_dict(),
                 'acc': sum(all_acc) / len(all_acc),}, './checkpoints/'+str(epoch)+'_model.pt')
 
-    def train(self,train_dataloader,valid_dataloader,replaced_dataloader, device):
+    def train(self,train_dataloader,valid_dataloader,embedding_sens_eval_dataloader,replaced_dataloader, device):
         logger =  logging.getLogger('training')
         logger.info(f'model config:{self.config}')
-        self.validation(valid_dataloader,replaced_dataloader, 0,device,False)
+        self.validation(valid_dataloader, replaced_dataloader,embedding_sens_eval_dataloader, 0,device,False)
         self.model.train()
         report_counter  = 0
         total_counter = 0
@@ -167,7 +167,7 @@ class TextClassifier(nn.Module):
                     logger.info(f'======total trained data counter: {total_counter}======')
                     logger.info(f'report_counter hit { self.report_number}, will do validation')
                     # Validation
-                    self.validation(valid_dataloader, replaced_dataloader,epoch,device,False)
+                    self.validation(valid_dataloader, replaced_dataloader,embedding_sens_eval_dataloader,epoch,device,False)
 
 
                     temp1 = torch.tensor(self.sensitivity_2dlist_report, device = 'cpu')

@@ -93,8 +93,8 @@ logger.info(f'train set size: {len(dataset["train"])}')
 # %%
 
 train_num_points = min(args.train_num_points, len(dataset['train']))
-train = dataset['train'][:train_num_points]
-train['dataset'] = args.dataset
+train = dataset['train'].select(range(train_num_points))
+
 if(args.dataset in ['boolq', 'qqp', 'rte', 'qnli', 'mrpc']):
     valid_num_points = min(args.valid_num_points, len(dataset['validation']))
     valid = dataset['validation'][-valid_num_points:]
@@ -108,6 +108,11 @@ elif (args.dataset == 'mnli'):
     replaced = replaced_data(valid, args.replace_size) 
     replaced['dataset'] = args.dataset
 
+# Shuffle the subset and then select the number of points for evaluation
+embedding_sens_eval_data = train.shuffle(seed=42).select(range(valid_num_points))[:]
+train = train[:]
+train['dataset'] = args.dataset
+embedding_sens_eval_data['dataset'] = args.dataset
 
 
 if args.model_name=='roberta-scratch':
@@ -131,6 +136,9 @@ if(args.dataset in ['boolq', 'rte', 'qqp', 'qnli', 'mrpc']):
     replaced_data = get_Replaced_Dataset_binary(replaced, tokenizer, args.model_name, max_length = args.max_length)
     replaced_dataloader = DataLoader(replaced_data, sampler=SequentialSampler(replaced_data), 
                             batch_size=args.batch_size, pin_memory=args.num_workers>0, num_workers=args.num_workers)
+    embedding_sens_eval_data = get_Dataset_binary(embedding_sens_eval_data, tokenizer, args.model_name, max_length = args.max_length)
+    embedding_sens_eval_dataloader = DataLoader(embedding_sens_eval_data, sampler=SequentialSampler(replaced_data), 
+                            batch_size=args.batch_size, pin_memory=args.num_workers>0, num_workers=args.num_workers)
 elif (args.dataset == 'mnli'):
     train_data = get_Dataset(train, tokenizer, args.model_name, max_length=args.max_length)
     train_dataloader = DataLoader(train_data, sampler= SequentialSampler(train_data), 
@@ -141,6 +149,9 @@ elif (args.dataset == 'mnli'):
     replaced_data = get_Replaced_Dataset(replaced, tokenizer, args.model_name, max_length = args.max_length)
     replaced_dataloader = DataLoader(replaced_data, sampler=SequentialSampler(replaced_data), 
                             batch_size=args.batch_size, pin_memory=args.num_workers>0, num_workers=args.num_workers)
+    embedding_sens_eval_data = get_Dataset(embedding_sens_eval_data, tokenizer, args.model_name, max_length = args.max_length)
+    embedding_sens_eval_dataloader = DataLoader(embedding_sens_eval_data, sampler=SequentialSampler(replaced_data), 
+                            batch_size=args.batch_size, pin_memory=args.num_workers>0, num_workers=args.num_workers)
 
 # %%
 if args.model_name=='roberta-scratch':
@@ -149,7 +160,7 @@ elif args.model_name=='roberta-base':
     model = TextClassifier(args,foldername).to(device)
 elif args.model_name=='lstm':
     model = LSTMTextClassifier(args,foldername).to(device)
-model.train(train_dataloader,valid_dataloader,replaced_dataloader,device)
+model.train(train_dataloader,valid_dataloader,embedding_sens_eval_dataloader,replaced_dataloader,device)
 
 sizeinmb = get_model_size(model)
 logger.info(f'model size: {sizeinmb}MB')

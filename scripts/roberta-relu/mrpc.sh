@@ -1,6 +1,7 @@
 #!/bin/bash
 
-source ~/.bashrc
+eval "$(conda shell.bash hook)"
+
 conda activate sbias
 
 python main.py --model_name 'roberta-scratch' --roberta_act 'relu'\
