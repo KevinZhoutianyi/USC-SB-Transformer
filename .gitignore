@@ -5,7 +5,7 @@ __pycache__/
 
 
 checkpoints/
-logs/
+logs*/
 *.pt
 # C extensions
 *.so
