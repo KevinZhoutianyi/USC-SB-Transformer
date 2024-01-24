@@ -22,3 +22,4 @@ python main.py --model_name 'roberta-scratch'\
     --valid_num_points 9795 \
     --sensitivity_method 'embedding' \
     --dataset 'rte' \
+    --roberta_act 'relu' \
