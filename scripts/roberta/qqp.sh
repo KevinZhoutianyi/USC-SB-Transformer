@@ -19,8 +19,8 @@ python main.py --model_name 'roberta-scratch'\
     --replace_size 3 \
     --report_num_points 5000 \
     --train_num_points 392700 \
-    --valid_num_points 9795 \
+    --valid_num_points 640 \
     --dataset 'qqp' \
     --sensitivity_method 'embedding' \
-    --embedding_noise_variance 4 \
-    --exp_name 'variance-4' \
+    # --embedding_noise_variance 4 \
+    # --exp_name 'variance-4' \

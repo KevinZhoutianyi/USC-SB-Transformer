@@ -10,6 +10,7 @@ from torch.utils.data import SequentialSampler
 import string
 from collections import Counter
 import pdb 
+from tqdm import tqdm
 
 task_to_keys = {
     "cola": ("sentence", None),
@@ -242,7 +243,7 @@ def embedding_label_sensitivity(embedding_sens_eval_dataloader,model,embedding,d
 
     logger = logging.getLogger('sensitivity')
     sensitivity_per_word_index_list = []
-    for batch in embedding_sens_eval_dataloader:
+    for _, batch in tqdm(enumerate(embedding_sens_eval_dataloader)):
         input_ids =    batch[0]
         input_att =    batch[1]
         batchsize =    batch[0].shape[0]

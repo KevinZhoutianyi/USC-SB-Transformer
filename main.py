@@ -139,6 +139,7 @@ if(args.dataset in ['boolq', 'rte', 'qqp', 'qnli', 'mrpc']):
     embedding_sens_eval_data = get_Dataset_binary(embedding_sens_eval_data, tokenizer, args.model_name, max_length = args.max_length)
     embedding_sens_eval_dataloader = DataLoader(embedding_sens_eval_data, sampler=SequentialSampler(replaced_data), 
                             batch_size=args.batch_size, pin_memory=args.num_workers>0, num_workers=args.num_workers)
+    print("Length of Embedding Sensitivity Eval Loader", len(embedding_sens_eval_dataloader))
 elif (args.dataset == 'mnli'):
     train_data = get_Dataset(train, tokenizer, args.model_name, max_length=args.max_length)
     train_dataloader = DataLoader(train_data, sampler= SequentialSampler(train_data), 
