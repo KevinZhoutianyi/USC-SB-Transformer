@@ -310,14 +310,15 @@ def embedding_label_sensitivity(embedding_sens_eval_dataloader,model,embedding,d
     # Sum the values and count the non-missing values for each index
     for v in sensitivity_per_word_index_list:
         lengths = len(v)
-        sums[:lengths] += v
-        counts[:lengths] += 1
+        sums[-lengths:] += v
+        counts[-lengths:] += 1
 
     # Calculate the average for each index
     sensitivity_per_word_index = sums / counts
+    mean_sensitivity = sums.sum() / counts.sum()
     logger.debug(f"sensitivity_per_word_index:{sensitivity_per_word_index}") 
     
-    return sensitivity_per_word_index
+    return sensitivity_per_word_index, mean_sensitivity
 
 
 
