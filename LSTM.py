@@ -24,7 +24,10 @@ class LSTMTextClassifier(nn.Module):
     def __init__(self, args, foldername):
         super(LSTMTextClassifier, self).__init__()
         
-        self.embedding = nn.Embedding(args.vocab_size, args.embedding_dim, padding_idx=args.pad_idx)
+        self.embedding = nn.Sequential(
+            nn.Embedding(args.vocab_size, args.embedding_dim, padding_idx=args.pad_idx),
+            nn.LayerNorm(args.hidden_dim)
+        )
         self.model = nn.LSTM(args.embedding_dim, args.hidden_dim, num_layers=args.num_layers, dropout=args.dropout, batch_first=True)
         self.fc = nn.Linear(args.hidden_dim, args.num_labels)
         self.dropout = nn.Dropout(args.dropout)
