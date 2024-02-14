@@ -23,11 +23,12 @@ from tqdm import tqdm
 import string
 from RoBERTa import *
 from LSTM import *
+from GPT2 import *
 from transformers import RobertaTokenizer
 from transformers import AutoTokenizer
 import logging    # first of all import the module
 from datetime import datetime
-
+logging.basicConfig(level='ERROR')
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 parser = argparse.ArgumentParser("main")
 
@@ -115,7 +116,7 @@ train['dataset'] = args.dataset
 embedding_sens_eval_data['dataset'] = args.dataset
 
 
-if args.model_name=='roberta-scratch':
+if args.model_name=='roberta-scratch' or args.model_name=='gpt2-scratch':
     tokenizer = AutoTokenizer.from_pretrained('roberta-base')
 elif args.model_name=='lstm':
     tokenizer = AutoTokenizer.from_pretrained('roberta-base')
@@ -159,6 +160,8 @@ if args.model_name=='roberta-scratch':
     model = TextClassifier(args,foldername).to(device)
 elif args.model_name=='roberta-base':
     model = TextClassifier(args,foldername).to(device)
+elif args.model_name=='gpt2-scratch':
+    model = GPT2TextClassifier(args,foldername).to(device)
 elif args.model_name=='lstm':
     model = LSTMTextClassifier(args,foldername).to(device)
 model.train(train_dataloader,valid_dataloader,embedding_sens_eval_dataloader,replaced_dataloader,device)
