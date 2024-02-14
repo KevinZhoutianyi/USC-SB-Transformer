@@ -28,7 +28,7 @@ from transformers import RobertaTokenizer
 from transformers import AutoTokenizer
 import logging    # first of all import the module
 from datetime import datetime
-logging.basicConfig(level='ERROR')
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 parser = argparse.ArgumentParser("main")
 
