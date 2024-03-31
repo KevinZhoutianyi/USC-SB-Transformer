@@ -1,7 +1,7 @@
 #!/bin/bash
 
 source ~/.bashrc
-conda activate sbias
+conda activate /home/tianyizhou/anaconda3/envs/math
 
 python main.py --model_name 'roberta-scratch'\
     --batch_size 32 \
@@ -21,6 +21,6 @@ python main.py --model_name 'roberta-scratch'\
     --train_num_points 392700 \
     --valid_num_points 640 \
     --dataset 'qqp' \
-    --sensitivity_method 'embedding' \
-    # --embedding_noise_variance 4 \
-    # --exp_name 'variance-4' \
+    --sensitivity_method 'sentence_embedding' \
+    --embedding_noise_variance 0.5 \
+    --exp_name 'variance-0.5' \

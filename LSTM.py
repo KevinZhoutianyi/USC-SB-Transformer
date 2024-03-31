@@ -51,6 +51,8 @@ class LSTMTextClassifier(nn.Module):
         self.report_number = args.report_num_points
         self.replace_size = args.replace_size
         self.sensitivity_2dlist_report = []
+        self.sensitivity_1dlist_report = []
+        
         self.train_loss_report = []
         self.validation_loss_report = []
         self.log_foldername = foldername
@@ -120,8 +122,10 @@ class LSTMTextClassifier(nn.Module):
             sensitivity = word_label_sensitivity(replaced_dataloader, valid_dataloader, self, device, self.replace_size)
         elif self.sensitivity_method =='embedding':
             sensitivity, mean_sensitivity = embedding_label_sensitivity(embedding_sens_eval_dataloader, self, self.embedding, device, self.replace_size, self.embedding_noise_variance)
-        
+        elif self.sensitivity_method =='sentence_embedding':# we use a subset of training data to test the sensitivity
+            sensitivity, mean_sensitivity = sentence_embedding_label_sensitivity(embedding_sens_eval_dataloader, self, self.embedding, device, self.replace_size, self.embedding_noise_variance)
         self.sensitivity_2dlist_report.append(sensitivity)
+        self.sensitivity_1dlist_report.append(mean_sensitivity)
         self.validation_loss_report.append(sum(all_loss)    / len(all_loss) )
         self.validation_acc_report.append(sum(all_acc) / len(all_acc))
         logger.info(f"sensitivity: {sensitivity}")
@@ -176,7 +180,10 @@ class LSTMTextClassifier(nn.Module):
                     self.validation(valid_dataloader, replaced_dataloader,embedding_sens_eval_dataloader,epoch,device,False)
 
 
-                    temp1 = torch.tensor(self.sensitivity_2dlist_report, device = 'cpu')
+                    if self.sensitivity_method == 'sentence_embedding':
+                        temp1 = torch.tensor(self.sensitivity_1dlist_report, device = 'cpu')
+                    else:
+                        temp1 = torch.tensor(self.sensitivity_2dlist_report, device = 'cpu')
                     temp2= torch.tensor(self.train_loss_report, device = 'cpu')
                     temp3 = torch.tensor(self.validation_loss_report, device = 'cpu')
                     temp4 = torch.tensor(self.validation_acc_report, device = 'cpu')

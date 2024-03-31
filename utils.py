@@ -410,6 +410,88 @@ def embedding_label_sensitivity(embedding_sens_eval_dataloader,model,embedding,d
 
 
 
+def sentence_embedding_label_sensitivity(embedding_sens_eval_dataloader,model,embedding,device,n,variance):
+    #1. we need to add noise to each token embedding 
+    #2. for each sentence, we first get the origin prediction, and repeat by seqlen*n
+
+    logger = logging.getLogger('sensitivity')
+    sensitivity_per_word_index_list = []
+    for _, batch in tqdm(enumerate(embedding_sens_eval_dataloader)):
+        input_ids =    batch[0]
+        input_att =    batch[1]
+        batchsize =    batch[0].shape[0]
+        seqlen =    torch.sum(input_att,dim=1).to('cpu')
+        maxlen =    input_ids.shape[1]
+        logger.debug(f"input_ids.shape:{input_ids.shape}, input_att.shape:{input_att.shape}")
+        logger.debug(f"input_ids[0]:{input_ids[0]}, input_att[0]:{input_att[0]}")
+        logger.debug(f"batchsize:{batchsize}, seqlen:{seqlen}, maxlen:{maxlen}")
+        input_ids, input_att =  input_ids.to(device), input_att.to(device)
+        x_emb = embedding(input_ids) #batch size, seq len, embedding size
+        logger.debug(f"x_emb.shape:{x_emb.shape}")
+        with torch.no_grad():
+            for i in range(batchsize): #for each sentence
+
+                #we first get a seqlen*n  prediction matrix on unnoised data
+                origin_output = model.forward_withembedding(x_emb[i].unsqueeze(dim=0),input_att[i].unsqueeze(dim=0))
+                logger.debug(f"origin_output.shape:{origin_output.shape}")
+                pred = torch.argmax(origin_output, dim=1)
+                logger.debug(f"pred.shape:{pred.shape}")
+                logger.debug(f"n*seqlen[i]:{n*seqlen[i]}")
+                logger.debug(f"pred.repeat(n*seqlen[i]):{pred.repeat(n*seqlen[i])}")
+                origin_pred_matrix = pred.repeat(n)
+                logger.debug(f"origin_pred_matrix:{origin_pred_matrix}")  #shape is n, which represent the prediction result of that sentence and repeat n times
+
+
+                repeated_matrices = x_emb[i].repeat(n,1,1)    
+                # #the dim of the embedding is max_len, embedding size
+                # we first repeat the embedding n*seqlen[i] times
+                # we generate a guassian matrix and add to it
+                # do we add noise n times to each token emb?
+                logger.debug(f"repeated_matrices:{repeated_matrices}") 
+                mean = 0
+                #https://arxiv.org/pdf/2211.12316v1.pdf set it to 15, is not it too large? as the embedding is range from -1 to 1 when initialization
+                std_dev = variance ** 0.5
+                for j in range(n):  # n different noises for each token
+                    guass =  torch.randn(seqlen[i],x_emb[i].shape[-1]) * std_dev + mean
+                    repeated_matrices[j, :seqlen[i], :] += guass.to(device)
+                noised_embedding =repeated_matrices #shape: n, seqlen, hiddensize
+                logger.debug(f"noised_embedding:{noised_embedding}") 
+                logger.debug(f"noised_embedding.shape:{noised_embedding.shape}") 
+                noised_output = model.forward_withembedding(noised_embedding,input_att[i].repeat(n,1))
+                logger.debug(f"noised_output.shape:{noised_output.shape}") 
+                noised_pred = torch.argmax(noised_output, dim=1)
+                logger.debug(f"noised_pred.shape:{noised_pred.shape}") 
+                # noised_pred_matrix =  np.array(noised_pred.cpu()).reshape(seqlen[i], n)
+
+                whether_noise_affect_prediction_matrix = ~(origin_pred_matrix == noised_pred)
+                logger.debug(f"whether_noise_affect_prediction_matrix:{whether_noise_affect_prediction_matrix}") 
+                sens_for_n = whether_noise_affect_prediction_matrix.float().mean()
+                logger.debug(f"sens_for_n:{sens_for_n}") 
+                sensitivity_per_word_index_list.append(sens_for_n) 
+                logger.debug(f"sensitivity_per_word_index_list:{sensitivity_per_word_index_list}") 
+        
+
+        
+    # max_length = max(len(v) for v in sensitivity_per_word_index_list)
+
+    # # Initialize arrays for sum and count
+    # sums = np.zeros(max_length)
+    # counts = np.zeros(max_length)
+
+    # # Sum the values and count the non-missing values for each index
+    # for v in sensitivity_per_word_index_list:
+    #     lengths = len(v)
+    #     sums[-lengths:] += v
+    #     counts[-lengths:] += 1
+
+    # # Calculate the average for each index
+    # sensitivity_per_word_index = sums / counts
+    # mean_sensitivity = sums.sum() / counts.sum()
+    # logger.debug(f"sensitivity_per_word_index:{sensitivity_per_word_index}") 
+    
+    return None, torch.stack(sensitivity_per_word_index_list).float().mean()
+
+
 def word_label_sensitivity(replaced_dataloader, original_dataloader, model, device, n):
     #datasets are now different sizes, replaced dataset is n*word*original_size
     logger = logging.getLogger('sensitivity')
